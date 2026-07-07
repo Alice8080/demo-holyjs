@@ -38,6 +38,13 @@ p {
   color: #d4d4d8;
 }
 
+label {
+  display: block;
+  margin: 8px 0 6px;
+  font-size: 0.9rem;
+  color: #d4d4d8;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -50,6 +57,9 @@ p {
   border-radius: 14px;
   padding: 14px;
   backdrop-filter: blur(3px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 #webcam,
@@ -145,6 +155,16 @@ button:disabled {
   background: #09090b;
   min-height: 100px;
   overflow-x: auto;
+}
+
+#coach-output {
+  margin: 10px 0 0;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #3f3f46;
+  background: #09090b;
+  min-height: 140px;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 880px) {

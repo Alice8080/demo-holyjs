@@ -7,7 +7,64 @@
     <title>Local AI/ML Presentation Coach</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <main class="layout">
+        <header>
+          <h1>Local AI/ML Presentation Coach</h1>
+          <p>Vision + Audio + Text + слой-агрегатор. Все работает локально в браузере.</p>
+        </header>
+    
+        <section class="grid">
+          <article class="card">
+            <h2>Зрение</h2>
+            <div class="video-stack">
+              <video id="webcam" autoplay playsinline muted></video>
+              <canvas id="overlay"></canvas>
+            </div>
+            <div class="controls">
+              <button id="start-camera">Запустить камеру</button>
+              <span id="vision-status" class="status">Модели зрения: ожидание</span>
+            </div>
+            <p id="gaze-warning" class="gaze-ok">Взгляд: ждем камеру...</p>
+            <p id="pose-status">Поза: данных пока нет.</p>
+            <p id="gesture-status">Жесты: данных пока нет.</p>
+            <p id="face-energy-status">Активность лица: данных пока нет.</p>
+
+            <h3>Аудио</h3>
+            <div class="controls">
+              <button id="start-mic">Запустить микрофон</button>
+              <span id="audio-status" class="status">Аудио-анализатор: ожидание</span>
+            </div>
+            <div class="controls">
+              <button id="toggle-asr">Старт распознавания</button>
+              <span id="asr-status" class="status">Речь: ожидание</span>
+            </div>
+            <p id="noise-status">Шум: данных пока нет.</p>
+            <p id="quality-status">Качество микрофона: данных пока нет.</p>
+          </article>
+
+          <article class="card">
+            <h2>Текст</h2>
+            <label for="theses-text">Тезисы / план</label>
+            <textarea id="theses-text" rows="4" placeholder="Один тезис на строку"></textarea>
+            <label for="transcript-text">Транскрипт / произнесенный текст</label>
+            <textarea id="transcript-text" rows="6" placeholder="Вставьте распознанную речь или сценарий"></textarea>
+            <div class="controls">
+              <button id="analyze-text">Анализировать текст</button>
+              <span id="nlp-status" class="status">Текстовая модель: ожидание</span>
+            </div>
+            <pre id="nlp-result">Анализа пока нет.</pre>
+          </article>
+    
+          <article class="card">
+            <h2>LLM-агрегатор</h2>
+            <p>Собирает сигналы из Vision/Audio/Text и формирует итоговые рекомендации.</p>
+            <button id="generate-recommendations">Сгенерировать рекомендации</button>
+            <pre id="coach-output">Рекомендаций пока нет.</pre>
+          </article>
+        </section>
+      </main>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
