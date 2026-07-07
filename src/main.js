@@ -1,4 +1,4 @@
-import { FaceDetector, FilesetResolver } from '@mediapipe/tasks-vision'
+import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { pipeline } from '@xenova/transformers'
 import './style.css'
 
@@ -22,7 +22,7 @@ app.innerHTML = `
           <button id="start-camera">Start camera</button>
           <span id="vision-status" class="status">Vision model: idle</span>
         </div>
-        <p id="vision-tip">Click "Start camera" to run on-device face detection.</p>
+        <p id="vision-tip">Click "Start camera" to run on-device face landmarks.</p>
         <p id="gaze-warning" class="gaze-ok">Eye contact: waiting for camera...</p>
       </article>
 
@@ -52,32 +52,32 @@ const gazeWarning = document.querySelector('#gaze-warning')
 const nlpResult = document.querySelector('#nlp-result')
 
 const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'
+  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_FILES_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
 
-let faceDetector
+let faceLandmarker
 let sentimentPipeline
 let streamStarted = false
 let lastVideoTime = -1
 let offCameraFrames = 0
-const OFF_CAMERA_THRESHOLD = 14
+const OFF_CAMERA_THRESHOLD = 6
 
-async function initFaceDetector() {
-  if (faceDetector) {
-    return faceDetector
+async function initFaceLandmarker() {
+  if (faceLandmarker) {
+    return faceLandmarker
   }
 
   visionStatus.textContent = 'Vision model: loading...'
   const vision = await FilesetResolver.forVisionTasks(WASM_FILES_URL)
-  faceDetector = await FaceDetector.createFromOptions(vision, {
+  faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath: MODEL_URL,
     },
     runningMode: 'VIDEO',
-    minDetectionConfidence: 0.4,
+    numFaces: 1,
   })
   visionStatus.textContent = 'Vision model: ready (WASM)'
-  return faceDetector
+  return faceLandmarker
 }
 
 async function initSentimentPipeline() {
@@ -111,12 +111,45 @@ async function initSentimentPipeline() {
   return sentimentPipeline
 }
 
-function getFramingTip(detection) {
-  if (!detection) {
+function toPixelPoint(point) {
+  return {
+    x: point.x * webcam.videoWidth,
+    y: point.y * webcam.videoHeight,
+  }
+}
+
+function getFaceBox(landmarks) {
+  if (!landmarks || landmarks.length === 0) {
+    return undefined
+  }
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  for (const landmark of landmarks) {
+    const { x, y } = toPixelPoint(landmark)
+    minX = Math.min(minX, x)
+    minY = Math.min(minY, y)
+    maxX = Math.max(maxX, x)
+    maxY = Math.max(maxY, y)
+  }
+
+  return {
+    originX: minX,
+    originY: minY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+  }
+}
+
+function getFramingTip(faceBox) {
+  if (!faceBox) {
     return 'No face detected. Move your face into the frame.'
   }
 
-  const { originX, originY, width, height } = detection.boundingBox
+  const { originX, originY, width, height } = faceBox
   const centerX = originX + width / 2
   const centerY = originY + height / 2
   const offsetX = Math.abs(centerX - webcam.videoWidth / 2) / webcam.videoWidth
@@ -136,65 +169,70 @@ function getFramingTip(detection) {
   return 'Framing looks good. Keep your current position.'
 }
 
-function toPixelPoint(keypoint) {
-  const x = keypoint.x <= 1 ? keypoint.x * webcam.videoWidth : keypoint.x
-  const y = keypoint.y <= 1 ? keypoint.y * webcam.videoHeight : keypoint.y
-  return { x, y }
-}
-
-function estimateGaze(detection) {
-  if (!detection?.keypoints || detection.keypoints.length < 2) {
-    return { onCamera: true, confidence: 'low' }
+function estimateGaze(landmarks) {
+  // Approximation: use nose-eye alignment + iris position in eye contours.
+  if (!landmarks || landmarks.length < 474) {
+    return { onCamera: false }
   }
 
-  const leftEye = toPixelPoint(detection.keypoints[0])
-  const rightEye = toPixelPoint(detection.keypoints[1])
-  const eyesMidX = (leftEye.x + rightEye.x) / 2
-  const eyesMidY = (leftEye.y + rightEye.y) / 2
+  const leftEyeOuter = toPixelPoint(landmarks[33])
+  const leftEyeInner = toPixelPoint(landmarks[133])
+  const rightEyeInner = toPixelPoint(landmarks[362])
+  const rightEyeOuter = toPixelPoint(landmarks[263])
+  const leftIris = toPixelPoint(landmarks[468])
+  const rightIris = toPixelPoint(landmarks[473])
+  const noseTip = toPixelPoint(landmarks[1])
 
-  const { originX, originY, width, height } = detection.boundingBox
-  const boxCenterX = originX + width / 2
-  const boxCenterY = originY + height / 2
+  const eyeMidX = (leftEyeInner.x + rightEyeInner.x) / 2
+  const eyeDistance = Math.max(1, Math.abs(rightEyeInner.x - leftEyeInner.x))
+  const headYaw = Math.abs(noseTip.x - eyeMidX) / eyeDistance
 
-  const normalizedOffsetX = Math.abs(eyesMidX - boxCenterX) / Math.max(width, 1)
-  const normalizedOffsetY = Math.abs(eyesMidY - boxCenterY) / Math.max(height, 1)
-  const interEyeDistance = Math.abs(rightEye.x - leftEye.x) / Math.max(width, 1)
+  const leftMin = Math.min(leftEyeOuter.x, leftEyeInner.x)
+  const leftMax = Math.max(leftEyeOuter.x, leftEyeInner.x)
+  const rightMin = Math.min(rightEyeOuter.x, rightEyeInner.x)
+  const rightMax = Math.max(rightEyeOuter.x, rightEyeInner.x)
 
-  const turnedAway =
-    normalizedOffsetX > 0.2 || normalizedOffsetY > 0.34 || interEyeDistance < 0.12
+  const leftIrisRatio = (leftIris.x - leftMin) / Math.max(1, leftMax - leftMin)
+  const rightIrisRatio = (rightIris.x - rightMin) / Math.max(1, rightMax - rightMin)
+  const irisOffset = Math.abs((leftIrisRatio + rightIrisRatio) / 2 - 0.5)
 
-  return {
-    onCamera: !turnedAway,
-    confidence: 'medium',
-  }
+  const turnedAway = headYaw > 0.19 || irisOffset > 0.19
+  return { onCamera: !turnedAway }
 }
 
-function updateGazeWarning(detection) {
-  if (!detection) {
-    offCameraFrames += 1
+function updateGazeWarning(landmarks) {
+  if (!landmarks) {
+    offCameraFrames += 2
   } else {
-    const gaze = estimateGaze(detection)
+    const gaze = estimateGaze(landmarks)
     offCameraFrames = gaze.onCamera ? Math.max(0, offCameraFrames - 2) : offCameraFrames + 1
   }
 
   const shouldWarn = offCameraFrames >= OFF_CAMERA_THRESHOLD
   gazeWarning.className = shouldWarn ? 'gaze-alert' : 'gaze-ok'
+
+  if (!landmarks && shouldWarn) {
+    gazeWarning.textContent = 'Warning: face is out of frame.'
+    return
+  }
+
   gazeWarning.textContent = shouldWarn
     ? 'Warning: you are not looking at the camera.'
     : 'Eye contact: good.'
 }
 
-function drawDetections(detections) {
+function drawFaceBox(faceBox) {
   overlay.width = webcam.videoWidth
   overlay.height = webcam.videoHeight
   overlayCtx.clearRect(0, 0, overlay.width, overlay.height)
 
-  for (const detection of detections) {
-    const box = detection.boundingBox
-    overlayCtx.strokeStyle = '#7c3aed'
-    overlayCtx.lineWidth = 3
-    overlayCtx.strokeRect(box.originX, box.originY, box.width, box.height)
+  if (!faceBox) {
+    return
   }
+
+  overlayCtx.strokeStyle = '#7c3aed'
+  overlayCtx.lineWidth = 3
+  overlayCtx.strokeRect(faceBox.originX, faceBox.originY, faceBox.width, faceBox.height)
 }
 
 async function startCamera() {
@@ -202,7 +240,7 @@ async function startCamera() {
     return
   }
 
-  await initFaceDetector()
+  await initFaceLandmarker()
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
   })
@@ -214,19 +252,19 @@ async function startCamera() {
   })
 
   const renderFrame = () => {
-    if (!faceDetector || webcam.videoWidth === 0) {
+    if (!faceLandmarker || webcam.videoWidth === 0 || webcam.videoHeight === 0) {
       requestAnimationFrame(renderFrame)
       return
     }
 
     if (webcam.currentTime !== lastVideoTime) {
       lastVideoTime = webcam.currentTime
-      const result = faceDetector.detectForVideo(webcam, performance.now())
-      const detections = result.detections || []
-      drawDetections(detections)
-      const topDetection = detections[0]
-      visionTip.textContent = getFramingTip(topDetection)
-      updateGazeWarning(topDetection)
+      const result = faceLandmarker.detectForVideo(webcam, performance.now())
+      const landmarks = result.faceLandmarks?.[0]
+      const faceBox = getFaceBox(landmarks)
+      drawFaceBox(faceBox)
+      visionTip.textContent = getFramingTip(faceBox)
+      updateGazeWarning(landmarks)
     }
 
     requestAnimationFrame(renderFrame)
