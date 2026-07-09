@@ -1,3 +1,11 @@
+import { useRef } from 'react'
+import {
+  FaceLandmarker,
+  FilesetResolver,
+  GestureRecognizer,
+  PoseLandmarker,
+} from '@mediapipe/tasks-vision'
+
 const FACE_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const POSE_MODEL_URL =
@@ -7,84 +15,81 @@ const GESTURE_MODEL_URL =
 const WASM_FILES_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
 const OFF_CAMERA_THRESHOLD = 6
 
-export function createVisionAnalyzer({
-  FilesetResolver,
-  FaceLandmarker,
-  PoseLandmarker,
-  GestureRecognizer,
-  webcam,
-  overlay,
-  overlayCtx,
-  reactionLayer,
-  visionStatus,
-  gazeWarning,
-  poseStatus,
-  gestureStatus,
-  faceEnergyStatus,
+const GESTURE_EMOJI = {
+  Thumbs_Up: '👍',
+  Thumb_Up: '👍',
+  Thumbs_Down: '👎',
+  Thumb_Down: '👎',
+  Open_Palm: '🖐',
+  Closed_Fist: '✊',
+  Pointing_Up: '☝',
+  Victory: '✌',
+  ILoveYou: '🤟',
+}
+
+const GESTURE_ALIASES = {
+  thumbs_up: 'Thumbs_Up',
+  thumb_up: 'Thumbs_Up',
+  thumbs_down: 'Thumbs_Down',
+  thumb_down: 'Thumbs_Down',
+}
+
+const GESTURE_VIEW = {
+  Thumbs_Up: '👍 палец вверх',
+  Thumbs_Down: '👎 палец вниз',
+  Open_Palm: '🖐 открытая ладонь',
+  Closed_Fist: '✊ сжатый кулак',
+  Pointing_Up: '☝ указательный вверх',
+  Victory: '✌ жест победы',
+  ILoveYou: '🤟 I love you',
+}
+
+/**
+ * Live-анализ видео: взгляд, поза, жесты и активность лица через MediaPipe.
+ * Работает с уже смонтированными элементами <video>, <canvas> и слоем реакций.
+ */
+export function useVision({
+  webcamRef,
+  overlayRef,
+  reactionLayerRef,
+  setHud,
+  setVisionStatus,
   latestSignals,
   sessionStats,
 }) {
-  let visionResolver
-  let faceLandmarker
-  let poseLandmarker
-  let gestureRecognizer
-  let videoStreamStarted = false
-  let visionLoopActive = false
-  let renderFrameId = 0
-  let lastVideoTime = -1
-  let offCameraFrames = 0
-  let prevNosePoint
-  let previousGestureLabel = 'none'
-
-  const gestureEmoji = {
-    Thumbs_Up: '👍',
-    Thumb_Up: '👍',
-    Thumbs_Down: '👎',
-    Thumb_Down: '👎',
-    Open_Palm: '🖐',
-    Closed_Fist: '✊',
-    Pointing_Up: '☝',
-    Victory: '✌',
-    ILoveYou: '🤟',
-  }
-
-  const gestureAliases = {
-    thumbs_up: 'Thumbs_Up',
-    thumb_up: 'Thumbs_Up',
-    thumbs_down: 'Thumbs_Down',
-    thumb_down: 'Thumbs_Down',
-  }
-
-  function setHudState(element, state) {
-    if (!element) {
-      return
-    }
-    element.classList.remove('hud-good', 'hud-bad')
-    if (state === 'good') {
-      element.classList.add('hud-good')
-    } else if (state === 'bad') {
-      element.classList.add('hud-bad')
-    }
-  }
+  const state = useRef({
+    visionResolver: null,
+    faceLandmarker: null,
+    poseLandmarker: null,
+    gestureRecognizer: null,
+    videoStreamStarted: false,
+    visionLoopActive: false,
+    renderFrameId: 0,
+    lastVideoTime: -1,
+    offCameraFrames: 0,
+    prevNosePoint: undefined,
+    previousGestureLabel: 'none',
+  })
 
   async function getVisionResolver() {
-    if (visionResolver) {
-      return visionResolver
+    if (state.current.visionResolver) {
+      return state.current.visionResolver
     }
-    visionResolver = await FilesetResolver.forVisionTasks(WASM_FILES_URL)
-    return visionResolver
+    state.current.visionResolver = await FilesetResolver.forVisionTasks(WASM_FILES_URL)
+    return state.current.visionResolver
   }
 
   async function initVisionModels() {
-    if (faceLandmarker && poseLandmarker && gestureRecognizer) {
+    const s = state.current
+    if (s.faceLandmarker && s.poseLandmarker && s.gestureRecognizer) {
       return
     }
 
-    visionStatus.textContent = 'Модели зрения: загрузка...'
+    setVisionStatus('Модели зрения: загрузка...')
     const resolver = await getVisionResolver()
 
-    if (!faceLandmarker) {
-      faceLandmarker = await FaceLandmarker.createFromOptions(resolver, {
+    if (!s.faceLandmarker) {
+      s.faceLandmarker = await FaceLandmarker.createFromOptions(resolver, {
         baseOptions: { modelAssetPath: FACE_MODEL_URL },
         runningMode: 'VIDEO',
         numFaces: 1,
@@ -92,26 +97,27 @@ export function createVisionAnalyzer({
       })
     }
 
-    if (!poseLandmarker) {
-      poseLandmarker = await PoseLandmarker.createFromOptions(resolver, {
+    if (!s.poseLandmarker) {
+      s.poseLandmarker = await PoseLandmarker.createFromOptions(resolver, {
         baseOptions: { modelAssetPath: POSE_MODEL_URL },
         runningMode: 'VIDEO',
         numPoses: 1,
       })
     }
 
-    if (!gestureRecognizer) {
-      gestureRecognizer = await GestureRecognizer.createFromOptions(resolver, {
+    if (!s.gestureRecognizer) {
+      s.gestureRecognizer = await GestureRecognizer.createFromOptions(resolver, {
         baseOptions: { modelAssetPath: GESTURE_MODEL_URL },
         runningMode: 'VIDEO',
         numHands: 2,
       })
     }
 
-    visionStatus.textContent = 'Модели зрения: готовы (WASM)'
+    setVisionStatus('Модели зрения: готовы (WASM)')
   }
 
   function toPixelPoint(point) {
+    const webcam = webcamRef.current
     return {
       x: point.x * webcam.videoWidth,
       y: point.y * webcam.videoHeight,
@@ -174,28 +180,31 @@ export function createVisionAnalyzer({
   }
 
   function updateGazeWarning(landmarks) {
+    const s = state.current
     if (!landmarks) {
-      offCameraFrames += 2
+      s.offCameraFrames += 2
     } else {
       const gaze = estimateGaze(landmarks)
-      offCameraFrames = gaze.onCamera ? Math.max(0, offCameraFrames - 2) : offCameraFrames + 1
+      s.offCameraFrames = gaze.onCamera
+        ? Math.max(0, s.offCameraFrames - 2)
+        : s.offCameraFrames + 1
     }
 
-    const offCamera = offCameraFrames >= OFF_CAMERA_THRESHOLD
-    setHudState(gazeWarning, offCamera ? 'bad' : 'good')
-    gazeWarning.textContent = !landmarks && offCamera
-      ? 'Взгляд: лицо вышло из кадра.'
-      : offCamera
-        ? 'Взгляд: чаще смотри в камеру.'
-        : 'Взгляд: хороший eye contact.'
+    const offCamera = s.offCameraFrames >= OFF_CAMERA_THRESHOLD
+    const text =
+      !landmarks && offCamera
+        ? 'Взгляд: лицо вышло из кадра.'
+        : offCamera
+          ? 'Взгляд: чаще смотри в камеру.'
+          : 'Взгляд: хороший eye contact.'
 
+    setHud('gaze', text, offCamera ? 'bad' : 'good')
     return !offCamera
   }
 
   function analyzePose(poseLandmarks) {
     if (!poseLandmarks || poseLandmarks.length < 13) {
-      poseStatus.textContent = 'Поза: человек не обнаружен.'
-      setHudState(poseStatus, 'neutral')
+      setHud('pose', 'Поза: человек не обнаружен.', 'neutral')
       return { isOpen: false, warning: 'Нет данных по позе.' }
     }
 
@@ -218,31 +227,8 @@ export function createVisionAnalyzer({
       isStable = false
     }
 
-    poseStatus.textContent = `Поза: ${warning}`
-    setHudState(poseStatus, isStable ? 'good' : 'bad')
+    setHud('pose', `Поза: ${warning}`, isStable ? 'good' : 'bad')
     return { isOpen: torsoTilt < 0.2, warning }
-  }
-
-  function analyzeGesture(gestureResult) {
-    const rawGesture = gestureResult?.gestures?.[0]?.[0]?.categoryName
-    const topGesture = normalizeGestureLabel(rawGesture)
-    if (!topGesture || topGesture === 'None') {
-      gestureStatus.textContent = 'Жесты: 🤲 низкая активность рук.'
-      return { label: 'none', active: false }
-    }
-
-    const gestureView = {
-      Thumbs_Up: '👍 палец вверх',
-      Thumbs_Down: '👎 палец вниз',
-      Open_Palm: '🖐 открытая ладонь',
-      Closed_Fist: '✊ сжатый кулак',
-      Pointing_Up: '☝ указательный вверх',
-      Victory: '✌ жест победы',
-      ILoveYou: '🤟 I love you',
-    }
-
-    gestureStatus.textContent = `Жесты: ${gestureView[topGesture] ?? `🤌 ${topGesture}`}`
-    return { label: topGesture, active: true }
   }
 
   function normalizeGestureLabel(label) {
@@ -252,7 +238,19 @@ export function createVisionAnalyzer({
     }
 
     const aliasKey = value.toLowerCase().replace(/\s+/g, '_')
-    return gestureAliases[aliasKey] ?? value
+    return GESTURE_ALIASES[aliasKey] ?? value
+  }
+
+  function analyzeGesture(gestureResult) {
+    const rawGesture = gestureResult?.gestures?.[0]?.[0]?.categoryName
+    const topGesture = normalizeGestureLabel(rawGesture)
+    if (!topGesture || topGesture === 'None') {
+      setHud('gesture', 'Жесты: 🤲 низкая активность рук.', 'neutral')
+      return { label: 'none', active: false }
+    }
+
+    setHud('gesture', `Жесты: ${GESTURE_VIEW[topGesture] ?? `🤌 ${topGesture}`}`, 'neutral')
+    return { label: topGesture, active: true }
   }
 
   function getGestureAnchor(gestureResult) {
@@ -268,11 +266,12 @@ export function createVisionAnalyzer({
   }
 
   function spawnGestureReaction(gestureLabel, anchor) {
+    const reactionLayer = reactionLayerRef.current
     if (!reactionLayer) {
       return
     }
 
-    const emoji = gestureEmoji[gestureLabel]
+    const emoji = GESTURE_EMOJI[gestureLabel]
     if (!emoji) {
       return
     }
@@ -284,17 +283,22 @@ export function createVisionAnalyzer({
     reaction.style.top = `${(anchor.y * 100).toFixed(2)}%`
 
     reactionLayer.appendChild(reaction)
-    reaction.addEventListener('animationend', () => {
-      reaction.remove()
-    }, { once: true })
+    reaction.addEventListener(
+      'animationend',
+      () => {
+        reaction.remove()
+      },
+      { once: true },
+    )
   }
 
   function handleGestureReaction(gestureInfo, gestureResult) {
-    if (gestureInfo.label === previousGestureLabel) {
+    const s = state.current
+    if (gestureInfo.label === s.previousGestureLabel) {
       return
     }
 
-    previousGestureLabel = gestureInfo.label
+    s.previousGestureLabel = gestureInfo.label
     if (gestureInfo.label === 'none') {
       return
     }
@@ -303,9 +307,9 @@ export function createVisionAnalyzer({
   }
 
   function analyzeFaceEnergy(landmarks) {
+    const s = state.current
     if (!landmarks || landmarks.length < 16) {
-      faceEnergyStatus.textContent = 'Активность лица: нет данных.'
-      setHudState(faceEnergyStatus, 'neutral')
+      setHud('faceEnergy', 'Активность лица: нет данных.', 'neutral')
       return { score: 0, level: 'low' }
     }
 
@@ -317,21 +321,28 @@ export function createVisionAnalyzer({
 
     const faceWidth = Math.max(1, Math.abs(rightCheek.x - leftCheek.x))
     const mouthOpen = Math.abs(lowerLip.y - upperLip.y) / faceWidth
-    const motion = prevNosePoint
-      ? Math.hypot(nose.x - prevNosePoint.x, nose.y - prevNosePoint.y) / faceWidth
+    const motion = s.prevNosePoint
+      ? Math.hypot(nose.x - s.prevNosePoint.x, nose.y - s.prevNosePoint.y) / faceWidth
       : 0
 
-    prevNosePoint = nose
+    s.prevNosePoint = nose
     const energyScore = Math.min(1, mouthOpen * 6 + motion * 7)
     const level = energyScore < 0.22 ? 'low' : energyScore < 0.45 ? 'medium' : 'high'
     const levelRu = level === 'low' ? 'низкая' : level === 'medium' ? 'средняя' : 'высокая'
 
-    faceEnergyStatus.textContent = `Активность лица: ${levelRu} (${(energyScore * 100).toFixed(0)}%)`
-    setHudState(faceEnergyStatus, level === 'low' ? 'bad' : 'good')
+    setHud(
+      'faceEnergy',
+      `Активность лица: ${levelRu} (${(energyScore * 100).toFixed(0)}%)`,
+      level === 'low' ? 'bad' : 'good',
+    )
     return { score: energyScore, level }
   }
 
   function drawOverlays(faceBox, poseLandmarks) {
+    const webcam = webcamRef.current
+    const overlay = overlayRef.current
+    const overlayCtx = overlay.getContext('2d')
+
     overlay.width = webcam.videoWidth
     overlay.height = webcam.videoHeight
     overlayCtx.clearRect(0, 0, overlay.width, overlay.height)
@@ -355,39 +366,41 @@ export function createVisionAnalyzer({
   }
 
   async function startCamera() {
-    if (videoStreamStarted) {
+    const s = state.current
+    if (s.videoStreamStarted) {
       return
     }
 
     await initVisionModels()
+    const webcam = webcamRef.current
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
     })
     webcam.srcObject = stream
-    videoStreamStarted = true
-    visionLoopActive = true
+    s.videoStreamStarted = true
+    s.visionLoopActive = true
 
     await new Promise((resolve) => {
       webcam.onloadeddata = resolve
     })
 
     const renderFrame = () => {
-      if (!visionLoopActive) {
+      if (!s.visionLoopActive) {
         return
       }
 
-      if (!faceLandmarker || !poseLandmarker || !gestureRecognizer || webcam.videoWidth === 0) {
-        renderFrameId = requestAnimationFrame(renderFrame)
+      if (!s.faceLandmarker || !s.poseLandmarker || !s.gestureRecognizer || webcam.videoWidth === 0) {
+        s.renderFrameId = requestAnimationFrame(renderFrame)
         return
       }
 
-      if (webcam.currentTime !== lastVideoTime) {
-        lastVideoTime = webcam.currentTime
+      if (webcam.currentTime !== s.lastVideoTime) {
+        s.lastVideoTime = webcam.currentTime
         const now = performance.now()
 
-        const faceResult = faceLandmarker.detectForVideo(webcam, now)
-        const poseResult = poseLandmarker.detectForVideo(webcam, now)
-        const gestureResult = gestureRecognizer.recognizeForVideo(webcam, now)
+        const faceResult = s.faceLandmarker.detectForVideo(webcam, now)
+        const poseResult = s.poseLandmarker.detectForVideo(webcam, now)
+        const gestureResult = s.gestureRecognizer.recognizeForVideo(webcam, now)
 
         const landmarks = faceResult.faceLandmarks?.[0]
         const faceBox = getFaceBox(landmarks)
@@ -400,7 +413,7 @@ export function createVisionAnalyzer({
         handleGestureReaction(gestureInfo, gestureResult)
         const faceEnergy = analyzeFaceEnergy(landmarks)
 
-        latestSignals.vision = {
+        latestSignals.current.vision = {
           gazeGood,
           pose: poseInfo,
           gesture: gestureInfo,
@@ -417,42 +430,51 @@ export function createVisionAnalyzer({
         })
       }
 
-      renderFrameId = requestAnimationFrame(renderFrame)
+      s.renderFrameId = requestAnimationFrame(renderFrame)
     }
 
     renderFrame()
   }
 
   function stopCamera() {
-    if (!videoStreamStarted) {
+    const s = state.current
+    if (!s.videoStreamStarted) {
       return
     }
 
-    visionLoopActive = false
-    cancelAnimationFrame(renderFrameId)
-    renderFrameId = 0
+    s.visionLoopActive = false
+    cancelAnimationFrame(s.renderFrameId)
+    s.renderFrameId = 0
 
-    const stream = webcam.srcObject
+    const webcam = webcamRef.current
+    const stream = webcam?.srcObject
     if (stream && stream.getTracks) {
       for (const track of stream.getTracks()) {
         track.stop()
       }
     }
 
-    webcam.srcObject = null
-    videoStreamStarted = false
-    lastVideoTime = -1
-    offCameraFrames = 0
-    prevNosePoint = undefined
-    previousGestureLabel = 'none'
-    setHudState(gazeWarning, 'neutral')
-    setHudState(poseStatus, 'neutral')
-    setHudState(gestureStatus, 'neutral')
-    setHudState(faceEnergyStatus, 'neutral')
-    if (reactionLayer) {
-      reactionLayer.textContent = ''
+    if (webcam) {
+      webcam.srcObject = null
     }
-    overlayCtx.clearRect(0, 0, overlay.width, overlay.height)
+    s.videoStreamStarted = false
+    s.lastVideoTime = -1
+    s.offCameraFrames = 0
+    s.prevNosePoint = undefined
+    s.previousGestureLabel = 'none'
+
+    setHud('gaze', 'Взгляд: ждем камеру...', 'neutral')
+    setHud('pose', 'Поза: данных пока нет.', 'neutral')
+    setHud('gesture', 'Жесты: данных пока нет.', 'neutral')
+    setHud('faceEnergy', 'Активность лица: данных пока нет.', 'neutral')
+
+    if (reactionLayerRef.current) {
+      reactionLayerRef.current.textContent = ''
+    }
+    const overlay = overlayRef.current
+    if (overlay) {
+      overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height)
+    }
   }
 
   return { startCamera, stopCamera }

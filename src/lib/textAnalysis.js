@@ -5,7 +5,7 @@ function tokenizeRussianWords(text) {
   return (text.toLowerCase().match(/[а-яёa-z0-9]+/gi) || []).filter((word) => word.length > 2)
 }
 
-function computeTextStructure(theses, transcript) {
+export function computeTextStructure(theses, transcript) {
   const thesisList = theses
     .split('\n')
     .map((line) => line.trim())
@@ -76,88 +76,48 @@ function normalizeSentimentLabel(rawLabel) {
   return normalized
 }
 
-export function createTextAnalyzer({
-  thesesText,
-  transcriptText,
-  nlpStatus,
-  latestSignals,
-  onAnalyzed,
-}) {
-  let sentimentPipeline
-  let sentimentBackend = 'unknown'
-  let sentimentModelId = 'unknown'
-  let autoAnalyzeTimer
+let sentimentPipeline
+let sentimentBackend = 'unknown'
+let sentimentModelId = 'unknown'
 
-  async function initSentimentPipeline() {
-    if (sentimentPipeline) {
-      return sentimentPipeline
-    }
+async function initSentimentPipeline(onStatus) {
+  if (sentimentPipeline) {
+    return sentimentPipeline
+  }
 
-    nlpStatus.textContent = 'Текстовая модель: загрузка...'
-    const devices = navigator.gpu ? ['webgpu', 'wasm'] : ['wasm']
-    const errors = []
+  onStatus?.('Текстовая модель: загрузка...')
+  const devices = navigator.gpu ? ['webgpu', 'wasm'] : ['wasm']
+  const errors = []
 
-    for (const modelId of SENTIMENT_MODELS) {
-      for (const device of devices) {
-        try {
-          nlpStatus.textContent = `Текстовая модель: пробуем ${modelId} (${device})...`
-          sentimentPipeline = await pipeline('sentiment-analysis', modelId, { device })
-          sentimentBackend = device
-          sentimentModelId = modelId
-          nlpStatus.textContent = `Текстовая модель: готова (${device}, ${modelId})`
-          return sentimentPipeline
-        } catch (error) {
-          errors.push(`${modelId} on ${device}: ${error.message}`)
-        }
+  for (const modelId of SENTIMENT_MODELS) {
+    for (const device of devices) {
+      try {
+        onStatus?.(`Текстовая модель: пробуем ${modelId} (${device})...`)
+        sentimentPipeline = await pipeline('sentiment-analysis', modelId, { device })
+        sentimentBackend = device
+        sentimentModelId = modelId
+        onStatus?.(`Текстовая модель: готова (${device}, ${modelId})`)
+        return sentimentPipeline
+      } catch (error) {
+        errors.push(`${modelId} on ${device}: ${error.message}`)
       }
     }
-
-    throw new Error(
-      `Не удалось загрузить модели sentiment. Вероятно, CDN/Hub вернул HTML вместо JSON. ${errors.join(
-        ' | ',
-      )}`,
-    )
   }
 
-  async function analyzeText() {
-    const transcript = transcriptText.textContent.trim()
-    const theses = thesesText.value.trim()
+  throw new Error(
+    `Не удалось загрузить модели sentiment. Вероятно, CDN/Hub вернул HTML вместо JSON. ${errors.join(' | ')}`,
+  )
+}
 
-    if (!transcript) {
-      return false
-    }
+export async function analyzeSentiment(transcript, onStatus) {
+  const sentiment = await initSentimentPipeline(onStatus)
+  const output = await sentiment(transcript)
+  const top = output[0]
 
-    const sentiment = await initSentimentPipeline()
-    const sentimentOutput = await sentiment(transcript)
-    const topSentiment = sentimentOutput[0]
-    const label = normalizeSentimentLabel(topSentiment.label)
-
-    const structure = computeTextStructure(theses, transcript)
-    const response = {
-      sentiment: {
-        label,
-        confidence_percent: Number((topSentiment.score * 100).toFixed(1)),
-        model: sentimentModelId,
-        backend: sentimentBackend,
-      },
-      structure,
-    }
-
-    latestSignals.text = response
-    onAnalyzed?.()
-    return true
+  return {
+    label: normalizeSentimentLabel(top.label),
+    confidence_percent: Number((top.score * 100).toFixed(1)),
+    model: sentimentModelId,
+    backend: sentimentBackend,
   }
-
-  function scheduleAutoTextAnalysis() {
-    clearTimeout(autoAnalyzeTimer)
-    autoAnalyzeTimer = setTimeout(() => {
-      if (transcriptText.textContent.trim()) {
-        analyzeText().catch((error) => {
-          nlpStatus.textContent = `Ошибка автоанализа текста: ${error.message}`
-        })
-      }
-    }, 900)
-  }
-
-  return { analyzeText, scheduleAutoTextAnalysis }
 }

@@ -14,7 +14,7 @@ body {
   color: #e4e4e7;
 }
 
-#app {
+.app {
   max-width: 90%;
   margin: 0 auto;
   padding: 28px 16px 40px;
@@ -241,95 +241,7 @@ button:disabled {
   color: #c4b5fd;
 }
 
-#vision-tip {
-  margin-top: 10px;
-  min-height: 42px;
-}
-
-#nlp-result {
-  margin: 12px 0 0;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #3f3f46;
-  background: #09090b;
-  min-height: 100px;
-  color: #d4d4d8;
-}
-
-.text-report {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.text-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  font-size: 0.82rem;
-  color: #a1a1aa;
-}
-
-.text-stats b {
-  color: #e4e4e7;
-  font-weight: 600;
-}
-
-.text-subtitle {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #d4d4d8;
-}
-
-.text-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(63, 63, 70, 0.6);
-}
-
-.text-section:first-of-type {
-  padding-top: 0;
-  border-top: none;
-}
-
-.text-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 12px;
-}
-
-.text-field {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.82rem;
-  padding: 5px 8px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.text-field-label {
-  color: #a1a1aa;
-}
-
-.text-field-value {
-  color: #f4f4f5;
-  font-weight: 600;
-  text-align: right;
-  word-break: break-word;
-}
-
-@media (max-width: 560px) {
-  .text-fields {
-    grid-template-columns: 1fr;
-  }
-}
-
-#coach-output {
+.coach-output {
   margin: 10px 0 0;
   padding: 10px;
   border-radius: 10px;

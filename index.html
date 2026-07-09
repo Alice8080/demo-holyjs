@@ -7,53 +7,7 @@
     <title>Local Presentation Coach</title>
   </head>
   <body>
-    <div id="app">
-      <main class="layout">
-        <header>
-          <h1>Local Presentation Coach</h1>
-          <p>Работает локально в браузере, данные не покидают ваше устройство.</p>
-        </header>
-    
-        <section class="grid">
-          <article class="card live-card">
-            <div class="video-stack">
-              <div class="video-frame">
-                <video id="webcam" autoplay playsinline muted></video>
-                <canvas id="overlay"></canvas>
-                <div id="reaction-layer" aria-hidden="true"></div>
-              </div>
-              <div class="hud-panel" aria-live="polite">
-                <p id="gaze-warning" class="video-hud-item">Взгляд: ждем камеру...</p>
-                <p id="pose-status" class="video-hud-item">Поза: данных пока нет.</p>
-                <p id="face-energy-status" class="video-hud-item">Активность лица: данных пока нет.</p>
-                <p id="noise-status" class="video-hud-item">Шум: данных пока нет.</p>
-                <p id="quality-status" class="video-hud-item">Качество микрофона: данных пока нет.</p>
-                <p id="gesture-status" class="video-hud-item">Жесты: данных пока нет.</p>
-              </div>
-            </div>
-            <div class="controls">
-              <button id="start-live">Запустить live-анализ</button>
-              <span id="vision-status" class="status">Модели зрения: ожидание</span>
-            </div>
-          </article>
-
-          <article class="card">
-            <h2>Текст</h2>
-            <label for="theses-text">Тезисы / план</label>
-            <textarea id="theses-text" rows="4" placeholder="Один тезис на строку"></textarea>
-            <label for="transcript-text">Транскрипт / произнесенный текст</label>
-            <div id="transcript-text" class="transcript-view" data-placeholder="Распознанная речь появится здесь во время live-анализа"></div>
-            <p id="nlp-status" class="status">Текстовая модель: ожидание</p>
-          </article>
-    
-          <article class="card">
-            <h2>LLM-агрегатор</h2>
-            <p>Собирает сигналы из Vision/Audio/Text и автоматически формирует итоговый отчёт после остановки live-анализа.</p>
-            <div id="coach-output">Отчёт появится после остановки live-анализа.</div>
-          </article>
-        </section>
-      </main>
-    </div>
-    <script type="module" src="/src/main.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
