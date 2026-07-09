@@ -22,6 +22,7 @@ export function createVisionAnalyzer({
   gestureStatus,
   faceEnergyStatus,
   latestSignals,
+  sessionStats,
 }) {
   let visionResolver
   let faceLandmarker
@@ -405,6 +406,15 @@ export function createVisionAnalyzer({
           gesture: gestureInfo,
           faceEnergy,
         }
+
+        sessionStats?.recordVision({
+          gazeGood,
+          poseDetected: poseInfo.warning !== 'Нет данных по позе.',
+          poseStable: poseInfo.isOpen,
+          faceDetected: Boolean(landmarks && landmarks.length >= 16),
+          faceLevel: faceEnergy.level,
+          faceScore: faceEnergy.score,
+        })
       }
 
       renderFrameId = requestAnimationFrame(renderFrame)

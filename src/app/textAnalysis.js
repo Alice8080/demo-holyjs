@@ -80,8 +80,8 @@ export function createTextAnalyzer({
   thesesText,
   transcriptText,
   nlpStatus,
-  nlpResult,
   latestSignals,
+  onAnalyzed,
 }) {
   let sentimentPipeline
   let sentimentBackend = 'unknown'
@@ -120,12 +120,11 @@ export function createTextAnalyzer({
   }
 
   async function analyzeText() {
-    const transcript = transcriptText.value.trim()
+    const transcript = transcriptText.textContent.trim()
     const theses = thesesText.value.trim()
 
     if (!transcript) {
-      nlpResult.textContent = 'Сначала добавьте текст транскрипта.'
-      return
+      return false
     }
 
     const sentiment = await initSentimentPipeline()
@@ -145,15 +144,16 @@ export function createTextAnalyzer({
     }
 
     latestSignals.text = response
-    nlpResult.textContent = JSON.stringify(response, null, 2)
+    onAnalyzed?.()
+    return true
   }
 
   function scheduleAutoTextAnalysis() {
     clearTimeout(autoAnalyzeTimer)
     autoAnalyzeTimer = setTimeout(() => {
-      if (transcriptText.value.trim()) {
+      if (transcriptText.textContent.trim()) {
         analyzeText().catch((error) => {
-          nlpResult.textContent = `Ошибка автоанализа текста: ${error.message}`
+          nlpStatus.textContent = `Ошибка автоанализа текста: ${error.message}`
         })
       }
     }, 900)

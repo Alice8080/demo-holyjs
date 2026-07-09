@@ -25,6 +25,7 @@ export function createAudioAnalyzer({
   noiseStatus,
   qualityStatus,
   latestSignals,
+  sessionStats,
 }) {
   let audioContext
   let analyser
@@ -86,12 +87,20 @@ export function createAudioAnalyzer({
       setHudState(noiseStatus, noiseLevel === 'Норма' ? 'good' : 'bad')
       setHudState(qualityStatus, quality === 'Качество микрофона в норме.' ? 'good' : 'bad')
 
+      const clippingRatePercent = Number((clippingRate * 100).toFixed(1))
       latestSignals.audio = {
         rms: Number(rms.toFixed(4)),
         noiseLevel,
-        clippingRate: Number((clippingRate * 100).toFixed(1)),
+        clippingRate: clippingRatePercent,
         quality,
       }
+
+      sessionStats?.recordAudio({
+        noiseLevel,
+        qualityOk: quality === 'Качество микрофона в норме.',
+        rms,
+        clippingRate: clippingRatePercent,
+      })
 
       tickFrameId = requestAnimationFrame(tick)
     }

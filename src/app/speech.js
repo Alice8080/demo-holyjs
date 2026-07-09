@@ -50,7 +50,7 @@ export function createSpeechRecognitionController({
       }
 
       if (finalChunk) {
-        transcriptText.value = `${transcriptText.value.trim()} ${finalChunk}`.trim()
+        transcriptText.textContent = `${transcriptText.textContent.trim()} ${finalChunk}`.trim()
         onTranscriptFinalized()
       }
 

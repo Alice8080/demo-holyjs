@@ -7,15 +7,12 @@ import {
 import { env } from '@xenova/transformers'
 import './style.css'
 import {
-  analyzeTextBtn,
   asrStatus,
   audioStatus,
   coachOutput,
   faceEnergyStatus,
   gazeWarning,
-  generateRecommendationsBtn,
   gestureStatus,
-  nlpResult,
   nlpStatus,
   noiseStatus,
   overlay,
@@ -31,6 +28,7 @@ import {
 } from './app/dom'
 import { createAudioAnalyzer } from './app/audio'
 import { createRecommendationsGenerator } from './app/recommendations'
+import { createSessionStats } from './app/sessionStats'
 import { createSpeechRecognitionController } from './app/speech'
 import { latestSignals } from './app/state'
 import { createTextAnalyzer } from './app/textAnalysis'
@@ -38,6 +36,8 @@ import { configureTransformersEnv } from './app/transformersConfig'
 import { createVisionAnalyzer } from './app/vision'
 
 configureTransformersEnv(env)
+
+const sessionStats = createSessionStats()
 
 const { startCamera, stopCamera } = createVisionAnalyzer({
   FilesetResolver,
@@ -54,6 +54,7 @@ const { startCamera, stopCamera } = createVisionAnalyzer({
   gestureStatus,
   faceEnergyStatus,
   latestSignals,
+  sessionStats,
 })
 
 const { startMicrophone, stopMicrophone } = createAudioAnalyzer({
@@ -61,14 +62,19 @@ const { startMicrophone, stopMicrophone } = createAudioAnalyzer({
   noiseStatus,
   qualityStatus,
   latestSignals,
+  sessionStats,
 })
 
 const { analyzeText, scheduleAutoTextAnalysis } = createTextAnalyzer({
   thesesText,
   transcriptText,
   nlpStatus,
-  nlpResult,
   latestSignals,
+  onAnalyzed: () => {
+    generateRecommendations().catch((error) => {
+      coachOutput.textContent = `Ошибка формирования отчёта: ${error.message}`
+    })
+  },
 })
 
 const { startSpeechRecognition, stopSpeechRecognition } = createSpeechRecognitionController({
@@ -77,8 +83,14 @@ const { startSpeechRecognition, stopSpeechRecognition } = createSpeechRecognitio
   onTranscriptFinalized: scheduleAutoTextAnalysis,
 })
 
-const { generateRecommendations } = createRecommendationsGenerator({ coachOutput, latestSignals })
+const { generateRecommendations } = createRecommendationsGenerator({
+  coachOutput,
+  latestSignals,
+  sessionStats,
+})
 let liveStarted = false
+
+thesesText.addEventListener('input', scheduleAutoTextAnalysis)
 
 startLiveBtn.addEventListener('click', async () => {
   startLiveBtn.disabled = true
@@ -86,16 +98,35 @@ startLiveBtn.addEventListener('click', async () => {
     stopSpeechRecognition()
     await stopMicrophone()
     stopCamera()
+    sessionStats.stop()
     visionStatus.textContent = 'Модели зрения: остановлены'
     if (asrStatus) {
       asrStatus.textContent = 'Речь: остановлено.'
     }
     liveStarted = false
     startLiveBtn.textContent = 'Запустить live-анализ'
+
+    coachOutput.textContent = 'Формирую итоговый анализ выступления...'
+    let textAnalyzed = false
+    try {
+      textAnalyzed = await analyzeText()
+    } catch (error) {
+      nlpStatus.textContent = `Ошибка анализа текста: ${error.message}`
+    }
+
+    if (!textAnalyzed) {
+      try {
+        await generateRecommendations()
+      } catch (error) {
+        coachOutput.textContent = `Ошибка формирования отчёта: ${error.message}`
+      }
+    }
+
     startLiveBtn.disabled = false
     return
   }
 
+  sessionStats.start()
   let hasErrors = false
 
   try {
@@ -124,27 +155,9 @@ startLiveBtn.addEventListener('click', async () => {
   if (!hasErrors) {
     liveStarted = true
     startLiveBtn.textContent = 'Остановить live-анализ'
+  } else {
+    sessionStats.stop()
   }
 
   startLiveBtn.disabled = false
-})
-
-analyzeTextBtn.addEventListener('click', async () => {
-  analyzeTextBtn.disabled = true
-  try {
-    await analyzeText()
-  } catch (error) {
-    nlpResult.textContent = `Ошибка анализа текста: ${error.message}`
-  } finally {
-    analyzeTextBtn.disabled = false
-  }
-})
-
-generateRecommendationsBtn.addEventListener('click', async () => {
-  generateRecommendationsBtn.disabled = true
-  try {
-    await generateRecommendations()
-  } finally {
-    generateRecommendationsBtn.disabled = false
-  }
 })

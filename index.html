@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Local AI/ML Presentation Coach</title>
+    <title>Local Presentation Coach</title>
   </head>
   <body>
     <div id="app">
       <main class="layout">
         <header>
-          <h1>Local AI/ML Presentation Coach</h1>
-          <p>Vision + Audio + Text + слой-агрегатор. Все работает локально в браузере.</p>
+          <h1>Local Presentation Coach</h1>
+          <p>Работает локально в браузере, данные не покидают ваше устройство.</p>
         </header>
     
         <section class="grid">
@@ -42,19 +42,14 @@
             <label for="theses-text">Тезисы / план</label>
             <textarea id="theses-text" rows="4" placeholder="Один тезис на строку"></textarea>
             <label for="transcript-text">Транскрипт / произнесенный текст</label>
-            <textarea id="transcript-text" rows="6" placeholder="Вставьте распознанную речь или сценарий"></textarea>
-            <div class="controls">
-              <button id="analyze-text">Анализировать текст</button>
-              <span id="nlp-status" class="status">Текстовая модель: ожидание</span>
-            </div>
-            <pre id="nlp-result">Анализа пока нет.</pre>
+            <div id="transcript-text" class="transcript-view" data-placeholder="Распознанная речь появится здесь во время live-анализа"></div>
+            <p id="nlp-status" class="status">Текстовая модель: ожидание</p>
           </article>
     
           <article class="card">
             <h2>LLM-агрегатор</h2>
-            <p>Собирает сигналы из Vision/Audio/Text и формирует итоговые рекомендации.</p>
-            <button id="generate-recommendations">Сгенерировать рекомендации</button>
-            <pre id="coach-output">Рекомендаций пока нет.</pre>
+            <p>Собирает сигналы из Vision/Audio/Text и автоматически формирует итоговый отчёт после остановки live-анализа.</p>
+            <div id="coach-output">Отчёт появится после остановки live-анализа.</div>
           </article>
         </section>
       </main>
