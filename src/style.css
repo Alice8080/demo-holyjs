@@ -90,6 +90,7 @@ label {
 
 .video-stack {
   position: relative;
+  overflow: hidden;
 }
 
 #webcam {
@@ -104,6 +105,43 @@ label {
   inset: 0;
   height: 100%;
   pointer-events: none;
+  z-index: 1;
+}
+
+#reaction-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gesture-reaction {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: clamp(24px, 4vw, 42px);
+  transform: translate(-50%, -50%) scale(0.45);
+  opacity: 0;
+  animation: gesture-float 1.35s ease-out forwards;
+  will-change: transform, opacity;
+  text-shadow: 0 3px 14px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes gesture-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -45%) scale(0.45);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -55%) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -165%) scale(1.05);
+  }
 }
 
 textarea,

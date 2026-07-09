@@ -15,6 +15,7 @@ export function createVisionAnalyzer({
   webcam,
   overlay,
   overlayCtx,
+  reactionLayer,
   visionStatus,
   gazeWarning,
   poseStatus,
@@ -32,6 +33,26 @@ export function createVisionAnalyzer({
   let lastVideoTime = -1
   let offCameraFrames = 0
   let prevNosePoint
+  let previousGestureLabel = 'none'
+
+  const gestureEmoji = {
+    Thumbs_Up: '👍',
+    Thumb_Up: '👍',
+    Thumbs_Down: '👎',
+    Thumb_Down: '👎',
+    Open_Palm: '🖐',
+    Closed_Fist: '✊',
+    Pointing_Up: '☝',
+    Victory: '✌',
+    ILoveYou: '🤟',
+  }
+
+  const gestureAliases = {
+    thumbs_up: 'Thumbs_Up',
+    thumb_up: 'Thumbs_Up',
+    thumbs_down: 'Thumbs_Down',
+    thumb_down: 'Thumbs_Down',
+  }
 
   async function getVisionResolver() {
     if (visionResolver) {
@@ -185,7 +206,8 @@ export function createVisionAnalyzer({
   }
 
   function analyzeGesture(gestureResult) {
-    const topGesture = gestureResult?.gestures?.[0]?.[0]?.categoryName
+    const rawGesture = gestureResult?.gestures?.[0]?.[0]?.categoryName
+    const topGesture = normalizeGestureLabel(rawGesture)
     if (!topGesture || topGesture === 'None') {
       gestureStatus.textContent = 'Жесты: 🤲 низкая активность рук.'
       return { label: 'none', active: false }
@@ -203,6 +225,63 @@ export function createVisionAnalyzer({
 
     gestureStatus.textContent = `Жесты: ${gestureView[topGesture] ?? `🤌 ${topGesture}`}`
     return { label: topGesture, active: true }
+  }
+
+  function normalizeGestureLabel(label) {
+    const value = String(label ?? '').trim()
+    if (!value) {
+      return ''
+    }
+
+    const aliasKey = value.toLowerCase().replace(/\s+/g, '_')
+    return gestureAliases[aliasKey] ?? value
+  }
+
+  function getGestureAnchor(gestureResult) {
+    const anchor = gestureResult?.landmarks?.[0]?.[0]
+    if (!anchor) {
+      return { x: 0.5, y: 0.5 }
+    }
+
+    return {
+      x: Math.max(0, Math.min(1, anchor.x)),
+      y: Math.max(0, Math.min(1, anchor.y)),
+    }
+  }
+
+  function spawnGestureReaction(gestureLabel, anchor) {
+    if (!reactionLayer) {
+      return
+    }
+
+    const emoji = gestureEmoji[gestureLabel]
+    if (!emoji) {
+      return
+    }
+
+    const reaction = document.createElement('span')
+    reaction.className = 'gesture-reaction'
+    reaction.textContent = emoji
+    reaction.style.left = `${(anchor.x * 100).toFixed(2)}%`
+    reaction.style.top = `${(anchor.y * 100).toFixed(2)}%`
+
+    reactionLayer.appendChild(reaction)
+    reaction.addEventListener('animationend', () => {
+      reaction.remove()
+    }, { once: true })
+  }
+
+  function handleGestureReaction(gestureInfo, gestureResult) {
+    if (gestureInfo.label === previousGestureLabel) {
+      return
+    }
+
+    previousGestureLabel = gestureInfo.label
+    if (gestureInfo.label === 'none') {
+      return
+    }
+
+    spawnGestureReaction(gestureInfo.label, getGestureAnchor(gestureResult))
   }
 
   function analyzeFaceEnergy(landmarks) {
@@ -298,6 +377,7 @@ export function createVisionAnalyzer({
         const gazeGood = updateGazeWarning(landmarks)
         const poseInfo = analyzePose(poseLandmarks)
         const gestureInfo = analyzeGesture(gestureResult)
+        handleGestureReaction(gestureInfo, gestureResult)
         const faceEnergy = analyzeFaceEnergy(landmarks)
 
         latestSignals.vision = {
@@ -335,6 +415,10 @@ export function createVisionAnalyzer({
     lastVideoTime = -1
     offCameraFrames = 0
     prevNosePoint = undefined
+    previousGestureLabel = 'none'
+    if (reactionLayer) {
+      reactionLayer.textContent = ''
+    }
     overlayCtx.clearRect(0, 0, overlay.width, overlay.height)
   }
 

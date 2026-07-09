@@ -1,6 +1,7 @@
 export const webcam = document.querySelector('#webcam')
 export const overlay = document.querySelector('#overlay')
 export const overlayCtx = overlay.getContext('2d')
+export const reactionLayer = document.querySelector('#reaction-layer')
 
 export const startLiveBtn = document.querySelector('#start-live')
 export const analyzeTextBtn = document.querySelector('#analyze-text')
