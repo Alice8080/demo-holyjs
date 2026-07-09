@@ -22,7 +22,7 @@
               <canvas id="overlay"></canvas>
             </div>
             <div class="controls">
-              <button id="start-camera">Запустить камеру</button>
+              <button id="start-live">Запустить live-анализ</button>
               <span id="vision-status" class="status">Модели зрения: ожидание</span>
             </div>
             <p id="gaze-warning" class="gaze-ok">Взгляд: ждем камеру...</p>
@@ -31,14 +31,8 @@
             <p id="face-energy-status">Активность лица: данных пока нет.</p>
 
             <h3>Аудио</h3>
-            <div class="controls">
-              <button id="start-mic">Запустить микрофон</button>
-              <span id="audio-status" class="status">Аудио-анализатор: ожидание</span>
-            </div>
-            <div class="controls">
-              <button id="toggle-asr">Старт распознавания</button>
-              <span id="asr-status" class="status">Речь: ожидание</span>
-            </div>
+            <p><span id="audio-status" class="status">Аудио-анализатор: ожидание</span></p>
+            <p><span id="asr-status" class="status">Речь: ожидание</span></p>
             <p id="noise-status">Шум: данных пока нет.</p>
             <p id="quality-status">Качество микрофона: данных пока нет.</p>
           </article>

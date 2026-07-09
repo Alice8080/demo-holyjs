@@ -27,6 +27,8 @@ export function createVisionAnalyzer({
   let poseLandmarker
   let gestureRecognizer
   let videoStreamStarted = false
+  let visionLoopActive = false
+  let renderFrameId = 0
   let lastVideoTime = -1
   let offCameraFrames = 0
   let prevNosePoint
@@ -264,14 +266,19 @@ export function createVisionAnalyzer({
     })
     webcam.srcObject = stream
     videoStreamStarted = true
+    visionLoopActive = true
 
     await new Promise((resolve) => {
       webcam.onloadeddata = resolve
     })
 
     const renderFrame = () => {
+      if (!visionLoopActive) {
+        return
+      }
+
       if (!faceLandmarker || !poseLandmarker || !gestureRecognizer || webcam.videoWidth === 0) {
-        requestAnimationFrame(renderFrame)
+        renderFrameId = requestAnimationFrame(renderFrame)
         return
       }
 
@@ -301,11 +308,35 @@ export function createVisionAnalyzer({
         }
       }
 
-      requestAnimationFrame(renderFrame)
+      renderFrameId = requestAnimationFrame(renderFrame)
     }
 
     renderFrame()
   }
 
-  return { startCamera }
+  function stopCamera() {
+    if (!videoStreamStarted) {
+      return
+    }
+
+    visionLoopActive = false
+    cancelAnimationFrame(renderFrameId)
+    renderFrameId = 0
+
+    const stream = webcam.srcObject
+    if (stream && stream.getTracks) {
+      for (const track of stream.getTracks()) {
+        track.stop()
+      }
+    }
+
+    webcam.srcObject = null
+    videoStreamStarted = false
+    lastVideoTime = -1
+    offCameraFrames = 0
+    prevNosePoint = undefined
+    overlayCtx.clearRect(0, 0, overlay.width, overlay.height)
+  }
+
+  return { startCamera, stopCamera }
 }

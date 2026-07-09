@@ -2,9 +2,7 @@ export const webcam = document.querySelector('#webcam')
 export const overlay = document.querySelector('#overlay')
 export const overlayCtx = overlay.getContext('2d')
 
-export const startCameraBtn = document.querySelector('#start-camera')
-export const startMicBtn = document.querySelector('#start-mic')
-export const toggleAsrBtn = document.querySelector('#toggle-asr')
+export const startLiveBtn = document.querySelector('#start-live')
 export const analyzeTextBtn = document.querySelector('#analyze-text')
 export const generateRecommendationsBtn = document.querySelector('#generate-recommendations')
 

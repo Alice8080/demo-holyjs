@@ -16,6 +16,9 @@ export function createAudioAnalyzer({
 }) {
   let audioContext
   let analyser
+  let micStream
+  let audioLoopActive = false
+  let tickFrameId = 0
   let clippingFrames = 0
   let totalAudioFrames = 0
 
@@ -24,17 +27,22 @@ export function createAudioAnalyzer({
       return
     }
 
-    const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
     audioContext = new AudioContext()
     const source = audioContext.createMediaStreamSource(micStream)
     analyser = audioContext.createAnalyser()
     analyser.fftSize = 2048
     source.connect(analyser)
+    audioLoopActive = true
 
     audioStatus.textContent = 'Аудио-анализатор: работает'
     const buffer = new Float32Array(analyser.fftSize)
 
     const tick = () => {
+      if (!audioLoopActive) {
+        return
+      }
+
       analyser.getFloatTimeDomainData(buffer)
       let squareSum = 0
       let peak = 0
@@ -69,11 +77,35 @@ export function createAudioAnalyzer({
         quality,
       }
 
-      requestAnimationFrame(tick)
+      tickFrameId = requestAnimationFrame(tick)
     }
 
     tick()
   }
 
-  return { startMicrophone }
+  async function stopMicrophone() {
+    if (!audioContext) {
+      return
+    }
+
+    audioLoopActive = false
+    cancelAnimationFrame(tickFrameId)
+    tickFrameId = 0
+
+    if (micStream?.getTracks) {
+      for (const track of micStream.getTracks()) {
+        track.stop()
+      }
+    }
+
+    await audioContext.close()
+    audioContext = undefined
+    analyser = undefined
+    micStream = undefined
+    clippingFrames = 0
+    totalAudioFrames = 0
+    audioStatus.textContent = 'Аудио-анализатор: остановлен'
+  }
+
+  return { startMicrophone, stopMicrophone }
 }

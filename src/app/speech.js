@@ -5,7 +5,6 @@ function getSpeechRecognitionCtor() {
 export function createSpeechRecognitionController({
   transcriptText,
   asrStatus,
-  toggleAsrBtn,
   onTranscriptFinalized,
 }) {
   let speechRecognition
@@ -29,7 +28,6 @@ export function createSpeechRecognitionController({
 
     speechRecognition.onstart = () => {
       recognitionActive = true
-      toggleAsrBtn.textContent = 'Стоп распознавания'
       asrStatus.textContent = 'Речь: слушаю...'
     }
 
@@ -66,27 +64,35 @@ export function createSpeechRecognitionController({
         speechRecognition.start()
         return
       }
-      toggleAsrBtn.textContent = 'Старт распознавания'
       asrStatus.textContent = 'Речь: остановлено.'
     }
 
     return speechRecognition
   }
 
-  function toggleSpeechRecognition() {
+  function startSpeechRecognition() {
     const recognition = initSpeechRecognition()
     if (!recognition) {
-      return
+      return false
     }
 
     if (!recognitionActive) {
       recognitionActive = true
       recognition.start()
-    } else {
-      recognitionActive = false
-      recognition.stop()
+      return true
     }
+
+    return true
   }
 
-  return { toggleSpeechRecognition }
+  function stopSpeechRecognition() {
+    if (!speechRecognition || !recognitionActive) {
+      return
+    }
+
+    recognitionActive = false
+    speechRecognition.stop()
+  }
+
+  return { startSpeechRecognition, stopSpeechRecognition }
 }

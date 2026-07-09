@@ -22,10 +22,8 @@ import {
   overlayCtx,
   poseStatus,
   qualityStatus,
-  startCameraBtn,
-  startMicBtn,
+  startLiveBtn,
   thesesText,
-  toggleAsrBtn,
   transcriptText,
   visionStatus,
   webcam,
@@ -40,7 +38,7 @@ import { createVisionAnalyzer } from './app/vision'
 
 configureTransformersEnv(env)
 
-const { startCamera } = createVisionAnalyzer({
+const { startCamera, stopCamera } = createVisionAnalyzer({
   FilesetResolver,
   FaceLandmarker,
   PoseLandmarker,
@@ -56,7 +54,7 @@ const { startCamera } = createVisionAnalyzer({
   latestSignals,
 })
 
-const { startMicrophone } = createAudioAnalyzer({
+const { startMicrophone, stopMicrophone } = createAudioAnalyzer({
   audioStatus,
   noiseStatus,
   qualityStatus,
@@ -71,41 +69,58 @@ const { analyzeText, scheduleAutoTextAnalysis } = createTextAnalyzer({
   latestSignals,
 })
 
-const { toggleSpeechRecognition } = createSpeechRecognitionController({
+const { startSpeechRecognition, stopSpeechRecognition } = createSpeechRecognitionController({
   transcriptText,
   asrStatus,
-  toggleAsrBtn,
   onTranscriptFinalized: scheduleAutoTextAnalysis,
 })
 
 const { generateRecommendations } = createRecommendationsGenerator({ coachOutput, latestSignals })
+let liveStarted = false
 
-startCameraBtn.addEventListener('click', async () => {
-  startCameraBtn.disabled = true
+startLiveBtn.addEventListener('click', async () => {
+  startLiveBtn.disabled = true
+  if (liveStarted) {
+    stopSpeechRecognition()
+    await stopMicrophone()
+    stopCamera()
+    visionStatus.textContent = 'Модели зрения: остановлены'
+    asrStatus.textContent = 'Речь: остановлено.'
+    liveStarted = false
+    startLiveBtn.textContent = 'Запустить live-анализ'
+    startLiveBtn.disabled = false
+    return
+  }
+
+  let hasErrors = false
+
   try {
     await startCamera()
     visionStatus.textContent = 'Модели зрения: работают'
   } catch (error) {
+    hasErrors = true
     visionStatus.textContent = 'Модели зрения: ошибка'
     gazeWarning.textContent = `Ошибка Vision: ${error.message}`
-  } finally {
-    startCameraBtn.disabled = false
   }
-})
 
-startMicBtn.addEventListener('click', async () => {
-  startMicBtn.disabled = true
   try {
     await startMicrophone()
   } catch (error) {
+    hasErrors = true
     audioStatus.textContent = `Аудио-анализатор: ошибка (${error.message})`
-  } finally {
-    startMicBtn.disabled = false
   }
-})
 
-toggleAsrBtn.addEventListener('click', () => {
-  toggleSpeechRecognition()
+  const asrStarted = startSpeechRecognition()
+  if (!asrStarted) {
+    hasErrors = true
+  }
+
+  if (!hasErrors) {
+    liveStarted = true
+    startLiveBtn.textContent = 'Остановить live-анализ'
+  }
+
+  startLiveBtn.disabled = false
 })
 
 analyzeTextBtn.addEventListener('click', async () => {
