@@ -1,0 +1,26 @@
+export const webcam = document.querySelector('#webcam')
+export const overlay = document.querySelector('#overlay')
+export const overlayCtx = overlay.getContext('2d')
+
+export const startCameraBtn = document.querySelector('#start-camera')
+export const startMicBtn = document.querySelector('#start-mic')
+export const toggleAsrBtn = document.querySelector('#toggle-asr')
+export const analyzeTextBtn = document.querySelector('#analyze-text')
+export const generateRecommendationsBtn = document.querySelector('#generate-recommendations')
+
+export const visionStatus = document.querySelector('#vision-status')
+export const gazeWarning = document.querySelector('#gaze-warning')
+export const poseStatus = document.querySelector('#pose-status')
+export const gestureStatus = document.querySelector('#gesture-status')
+export const faceEnergyStatus = document.querySelector('#face-energy-status')
+
+export const audioStatus = document.querySelector('#audio-status')
+export const asrStatus = document.querySelector('#asr-status')
+export const noiseStatus = document.querySelector('#noise-status')
+export const qualityStatus = document.querySelector('#quality-status')
+
+export const thesesText = document.querySelector('#theses-text')
+export const transcriptText = document.querySelector('#transcript-text')
+export const nlpStatus = document.querySelector('#nlp-status')
+export const nlpResult = document.querySelector('#nlp-result')
+export const coachOutput = document.querySelector('#coach-output')
