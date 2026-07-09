@@ -87,7 +87,9 @@ startLiveBtn.addEventListener('click', async () => {
     await stopMicrophone()
     stopCamera()
     visionStatus.textContent = 'Модели зрения: остановлены'
-    asrStatus.textContent = 'Речь: остановлено.'
+    if (asrStatus) {
+      asrStatus.textContent = 'Речь: остановлено.'
+    }
     liveStarted = false
     startLiveBtn.textContent = 'Запустить live-анализ'
     startLiveBtn.disabled = false
@@ -109,7 +111,9 @@ startLiveBtn.addEventListener('click', async () => {
     await startMicrophone()
   } catch (error) {
     hasErrors = true
-    audioStatus.textContent = `Аудио-анализатор: ошибка (${error.message})`
+    if (audioStatus) {
+      audioStatus.textContent = `Аудио-анализатор: ошибка (${error.message})`
+    }
   }
 
   const asrStarted = startSpeechRecognition()

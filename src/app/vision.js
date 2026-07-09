@@ -54,6 +54,18 @@ export function createVisionAnalyzer({
     thumb_down: 'Thumbs_Down',
   }
 
+  function setHudState(element, state) {
+    if (!element) {
+      return
+    }
+    element.classList.remove('hud-good', 'hud-bad')
+    if (state === 'good') {
+      element.classList.add('hud-good')
+    } else if (state === 'bad') {
+      element.classList.add('hud-bad')
+    }
+  }
+
   async function getVisionResolver() {
     if (visionResolver) {
       return visionResolver
@@ -169,7 +181,7 @@ export function createVisionAnalyzer({
     }
 
     const offCamera = offCameraFrames >= OFF_CAMERA_THRESHOLD
-    gazeWarning.className = offCamera ? 'gaze-alert' : 'gaze-ok'
+    setHudState(gazeWarning, offCamera ? 'bad' : 'good')
     gazeWarning.textContent = !landmarks && offCamera
       ? 'Взгляд: лицо вышло из кадра.'
       : offCamera
@@ -182,6 +194,7 @@ export function createVisionAnalyzer({
   function analyzePose(poseLandmarks) {
     if (!poseLandmarks || poseLandmarks.length < 13) {
       poseStatus.textContent = 'Поза: человек не обнаружен.'
+      setHudState(poseStatus, 'neutral')
       return { isOpen: false, warning: 'Нет данных по позе.' }
     }
 
@@ -195,13 +208,17 @@ export function createVisionAnalyzer({
     const headOffset = Math.abs(nose.x - shoulderMidX) / shoulderWidth
 
     let warning = 'Поза стабильная.'
+    let isStable = true
     if (torsoTilt > 0.2) {
       warning = 'Плечи перекошены. Выпрями осанку.'
+      isStable = false
     } else if (headOffset > 0.5) {
       warning = 'Голова смещена. Вернись в центр.'
+      isStable = false
     }
 
     poseStatus.textContent = `Поза: ${warning}`
+    setHudState(poseStatus, isStable ? 'good' : 'bad')
     return { isOpen: torsoTilt < 0.2, warning }
   }
 
@@ -287,6 +304,7 @@ export function createVisionAnalyzer({
   function analyzeFaceEnergy(landmarks) {
     if (!landmarks || landmarks.length < 16) {
       faceEnergyStatus.textContent = 'Активность лица: нет данных.'
+      setHudState(faceEnergyStatus, 'neutral')
       return { score: 0, level: 'low' }
     }
 
@@ -308,6 +326,7 @@ export function createVisionAnalyzer({
     const levelRu = level === 'low' ? 'низкая' : level === 'medium' ? 'средняя' : 'высокая'
 
     faceEnergyStatus.textContent = `Активность лица: ${levelRu} (${(energyScore * 100).toFixed(0)}%)`
+    setHudState(faceEnergyStatus, level === 'low' ? 'bad' : 'good')
     return { score: energyScore, level }
   }
 
@@ -416,6 +435,10 @@ export function createVisionAnalyzer({
     offCameraFrames = 0
     prevNosePoint = undefined
     previousGestureLabel = 'none'
+    setHudState(gazeWarning, 'neutral')
+    setHudState(poseStatus, 'neutral')
+    setHudState(gestureStatus, 'neutral')
+    setHudState(faceEnergyStatus, 'neutral')
     if (reactionLayer) {
       reactionLayer.textContent = ''
     }

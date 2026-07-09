@@ -69,40 +69,38 @@ label {
 }
 
 .live-card .video-stack {
-  height: 40vh;
-}
-
-.live-card #webcam {
-  height: 100%;
-  aspect-ratio: auto;
-  object-fit: contain;
-}
-
-.live-card #overlay {
-  height: 100%;
-}
-
-#webcam,
-#overlay {
-  width: 100%;
-  border-radius: 10px;
+  height: 70vh;
 }
 
 .video-stack {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.video-frame {
   position: relative;
+  flex: 1;
+  min-width: 0;
+  border-radius: 12px;
   overflow: hidden;
+  background: #09090b;
 }
 
 #webcam {
   display: block;
+  width: 100%;
+  height: 100%;
   background: #09090b;
   border: 1px solid #3f3f46;
-  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  object-fit: contain;
 }
 
 #overlay {
   position: absolute;
   inset: 0;
+  width: 100%;
   height: 100%;
   pointer-events: none;
   z-index: 1;
@@ -113,6 +111,42 @@ label {
   inset: 0;
   pointer-events: none;
   z-index: 2;
+}
+
+.hud-panel {
+  width: clamp(240px, 28%, 340px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.video-hud-item {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(24, 24, 27, 0.55);
+  color: #e4e4e7;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  transition: background 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+}
+
+.video-hud-item.hud-good {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(74, 222, 128, 0.55);
+  color: #bbf7d0;
+}
+
+.video-hud-item.hud-bad {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
 }
 
 .gesture-reaction {
@@ -192,19 +226,6 @@ button:disabled {
   min-height: 42px;
 }
 
-#gaze-warning {
-  margin-top: 8px;
-  font-weight: 600;
-}
-
-.gaze-ok {
-  color: #86efac;
-}
-
-.gaze-alert {
-  color: #fca5a5;
-}
-
 #nlp-result {
   margin: 12px 0 0;
   padding: 10px;
@@ -228,5 +249,23 @@ button:disabled {
 @media (max-width: 880px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .video-stack {
+    flex-direction: column;
+  }
+
+  .live-card .video-stack {
+    height: auto;
+  }
+
+  .hud-panel {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .hud-panel .video-hud-item {
+    flex: 1 1 45%;
   }
 }

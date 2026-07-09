@@ -13,7 +13,9 @@ export function createSpeechRecognitionController({
   function initSpeechRecognition() {
     const SpeechRecognitionCtor = getSpeechRecognitionCtor()
     if (!SpeechRecognitionCtor) {
-      asrStatus.textContent = 'Речь: API распознавания недоступно в этом браузере.'
+      if (asrStatus) {
+        asrStatus.textContent = 'Речь: API распознавания недоступно в этом браузере.'
+      }
       return null
     }
 
@@ -28,7 +30,9 @@ export function createSpeechRecognitionController({
 
     speechRecognition.onstart = () => {
       recognitionActive = true
-      asrStatus.textContent = 'Речь: слушаю...'
+      if (asrStatus) {
+        asrStatus.textContent = 'Речь: слушаю...'
+      }
     }
 
     speechRecognition.onresult = (event) => {
@@ -50,13 +54,17 @@ export function createSpeechRecognitionController({
         onTranscriptFinalized()
       }
 
-      asrStatus.textContent = interimChunk
-        ? `Речь: ${interimChunk.trim()}`
-        : 'Речь: слушаю...'
+      if (asrStatus) {
+        asrStatus.textContent = interimChunk
+          ? `Речь: ${interimChunk.trim()}`
+          : 'Речь: слушаю...'
+      }
     }
 
     speechRecognition.onerror = (event) => {
-      asrStatus.textContent = `Речь: ошибка (${event.error})`
+      if (asrStatus) {
+        asrStatus.textContent = `Речь: ошибка (${event.error})`
+      }
     }
 
     speechRecognition.onend = () => {
@@ -64,7 +72,9 @@ export function createSpeechRecognitionController({
         speechRecognition.start()
         return
       }
-      asrStatus.textContent = 'Речь: остановлено.'
+      if (asrStatus) {
+        asrStatus.textContent = 'Речь: остановлено.'
+      }
     }
 
     return speechRecognition

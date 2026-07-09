@@ -16,26 +16,25 @@
     
         <section class="grid">
           <article class="card live-card">
-            <h2>Зрение</h2>
             <div class="video-stack">
-              <video id="webcam" autoplay playsinline muted></video>
-              <canvas id="overlay"></canvas>
-              <div id="reaction-layer" aria-hidden="true"></div>
+              <div class="video-frame">
+                <video id="webcam" autoplay playsinline muted></video>
+                <canvas id="overlay"></canvas>
+                <div id="reaction-layer" aria-hidden="true"></div>
+              </div>
+              <div class="hud-panel" aria-live="polite">
+                <p id="gaze-warning" class="video-hud-item">Взгляд: ждем камеру...</p>
+                <p id="pose-status" class="video-hud-item">Поза: данных пока нет.</p>
+                <p id="face-energy-status" class="video-hud-item">Активность лица: данных пока нет.</p>
+                <p id="noise-status" class="video-hud-item">Шум: данных пока нет.</p>
+                <p id="quality-status" class="video-hud-item">Качество микрофона: данных пока нет.</p>
+                <p id="gesture-status" class="video-hud-item">Жесты: данных пока нет.</p>
+              </div>
             </div>
             <div class="controls">
               <button id="start-live">Запустить live-анализ</button>
               <span id="vision-status" class="status">Модели зрения: ожидание</span>
             </div>
-            <p id="gaze-warning" class="gaze-ok">Взгляд: ждем камеру...</p>
-            <p id="pose-status">Поза: данных пока нет.</p>
-            <p id="gesture-status">Жесты: данных пока нет.</p>
-            <p id="face-energy-status">Активность лица: данных пока нет.</p>
-
-            <h3>Аудио</h3>
-            <p><span id="audio-status" class="status">Аудио-анализатор: ожидание</span></p>
-            <p><span id="asr-status" class="status">Речь: ожидание</span></p>
-            <p id="noise-status">Шум: данных пока нет.</p>
-            <p id="quality-status">Качество микрофона: данных пока нет.</p>
           </article>
 
           <article class="card">

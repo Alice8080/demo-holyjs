@@ -8,6 +8,18 @@ function getAudioLevelInfo(rms) {
   return 'Норма'
 }
 
+function setHudState(element, state) {
+  if (!element) {
+    return
+  }
+  element.classList.remove('hud-good', 'hud-bad')
+  if (state === 'good') {
+    element.classList.add('hud-good')
+  } else if (state === 'bad') {
+    element.classList.add('hud-bad')
+  }
+}
+
 export function createAudioAnalyzer({
   audioStatus,
   noiseStatus,
@@ -35,7 +47,9 @@ export function createAudioAnalyzer({
     source.connect(analyser)
     audioLoopActive = true
 
-    audioStatus.textContent = 'Аудио-анализатор: работает'
+    if (audioStatus) {
+      audioStatus.textContent = 'Аудио-анализатор: работает'
+    }
     const buffer = new Float32Array(analyser.fftSize)
 
     const tick = () => {
@@ -69,6 +83,8 @@ export function createAudioAnalyzer({
 
       noiseStatus.textContent = `Шум: ${noiseLevel} (RMS ${rms.toFixed(3)})`
       qualityStatus.textContent = `Качество микрофона: ${quality}`
+      setHudState(noiseStatus, noiseLevel === 'Норма' ? 'good' : 'bad')
+      setHudState(qualityStatus, quality === 'Качество микрофона в норме.' ? 'good' : 'bad')
 
       latestSignals.audio = {
         rms: Number(rms.toFixed(4)),
@@ -104,7 +120,11 @@ export function createAudioAnalyzer({
     micStream = undefined
     clippingFrames = 0
     totalAudioFrames = 0
-    audioStatus.textContent = 'Аудио-анализатор: остановлен'
+    setHudState(noiseStatus, 'neutral')
+    setHudState(qualityStatus, 'neutral')
+    if (audioStatus) {
+      audioStatus.textContent = 'Аудио-анализатор: остановлен'
+    }
   }
 
   return { startMicrophone, stopMicrophone }
