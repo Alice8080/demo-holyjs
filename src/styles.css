@@ -24,6 +24,25 @@ body {
   margin-bottom: 18px;
 }
 
+.repo-footer {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.repo-footer p {
+  font-size: 0.9rem;
+  color: #a1a1aa;
+}
+
+.repo-footer a {
+  color: #c4b5fd;
+  text-decoration: none;
+}
+
+.repo-footer a:hover {
+  text-decoration: underline;
+}
+
 h1 {
   margin: 0 0 8px;
   font-size: 2rem;
@@ -478,4 +497,11 @@ button:disabled {
   .hud-panel .video-hud-item {
     flex: 1 1 45%;
   }
+}
+
+
+@media (max-width: 480px) {
+  .app {
+    max-width: 98%;
+  }  
 }

@@ -85,7 +85,7 @@ export function useVision({
       return
     }
 
-    setVisionStatus('Модели зрения: загрузка...')
+    setVisionStatus('Vision-модели: загрузка...')
     const resolver = await getVisionResolver()
 
     if (!s.faceLandmarker) {
@@ -113,7 +113,7 @@ export function useVision({
       })
     }
 
-    setVisionStatus('Модели зрения: готовы (WASM)')
+    setVisionStatus('Vision-модели: готовы (WASM)')
   }
 
   function toPixelPoint(point) {

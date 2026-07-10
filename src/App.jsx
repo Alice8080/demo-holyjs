@@ -29,7 +29,7 @@ export default function App() {
   const [liveStarted, setLiveStarted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [hud, setHud] = useState(INITIAL_HUD)
-  const [visionStatus, setVisionStatus] = useState('Модели зрения: ожидание')
+  const [visionStatus, setVisionStatus] = useState('Vision-модели: ожидание загрузки')
   const [coach, setCoach] = useState('Отчёт появится после остановки live-анализа.')
 
   const updateHud = useCallback((key, text, state) => {
@@ -74,7 +74,7 @@ export default function App() {
       await stopMicrophone()
       stopCamera()
       sessionStats.stop()
-      setVisionStatus('Модели зрения: остановлены')
+      setVisionStatus('Vision-модели: остановлены')
       setLiveStarted(false)
       setCoach('Формирую итоговый анализ выступления...')
 
@@ -93,10 +93,10 @@ export default function App() {
 
     try {
       await startCamera()
-      setVisionStatus('Модели зрения: работают')
+      setVisionStatus('Vision-модели: работают')
     } catch (error) {
       hasErrors = true
-      setVisionStatus('Модели зрения: ошибка')
+      setVisionStatus('Vision-модели: ошибка')
       updateHud('gaze', `Ошибка Vision: ${error.message}`, 'bad')
     }
 
@@ -145,6 +145,15 @@ export default function App() {
             <Report content={coach} />
           </article>
         </section>
+
+        <footer className="repo-footer">
+          <p>
+            Исходный код:{' '}
+            <a href="https://github.com/Alice8080/demo-holyjs" target="_blank" rel="noreferrer">
+              github.com/Alice8080/demo-holyjs
+            </a>
+          </p>
+        </footer>
       </main>
     </div>
   )
