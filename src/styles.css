@@ -51,6 +51,40 @@ label {
   gap: 14px;
 }
 
+.thesis-evidence {
+  color: #a1a1aa;
+  font-style: italic;
+}
+
+.keyword-chip {
+  display: inline-block;
+  margin: 2px 4px 0 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  background: rgba(139, 92, 246, 0.18);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #ddd6fe;
+}
+
+.report-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #e4e4e7;
+  line-height: 1.45;
+}
+
+.key-sentences {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.key-sentences li {
+  margin: 2px 0;
+}
+
 .card {
   background: rgba(24, 24, 27, 0.82);
   border: 1px solid #3f3f46;
@@ -193,26 +227,6 @@ textarea {
   resize: vertical;
 }
 
-.transcript-view {
-  width: 100%;
-  min-height: 140px;
-  max-height: 260px;
-  overflow-y: auto;
-  border-radius: 10px;
-  border: 1px solid #52525b;
-  background: #09090b;
-  color: #f4f4f5;
-  padding: 10px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.5;
-}
-
-.transcript-view:empty::before {
-  content: attr(data-placeholder);
-  color: #71717a;
-}
-
 button {
   border: 1px solid #8b5cf6;
   background: #6d28d9;
@@ -268,10 +282,31 @@ button:disabled {
   color: #f4f4f5;
 }
 
+.report-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .report-duration {
   font-size: 0.85rem;
   font-weight: 500;
   color: #c4b5fd;
+}
+
+.report-warning {
+  color: #fcd34d;
+}
+
+.llm-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  background: rgba(109, 40, 217, 0.22);
+  color: #ddd6fe;
 }
 
 .report-card {
@@ -344,13 +379,6 @@ button:disabled {
   font-size: 0.82rem;
   color: #a1a1aa;
   line-height: 1.4;
-}
-
-.report-llm pre {
-  margin: 6px 0 0;
-  white-space: pre-wrap;
-  font: inherit;
-  color: #d4d4d8;
 }
 
 .thesis-list {

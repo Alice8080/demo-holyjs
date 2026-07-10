@@ -1,4 +1,4 @@
-export function buildSessionRecommendations(summary, text) {
+export function buildSessionRecommendations(summary) {
   const recommendations = []
 
   if (summary?.hasVision) {
@@ -44,48 +44,9 @@ export function buildSessionRecommendations(summary, text) {
     }
   }
 
-  if (text?.structure) {
-    if (text.structure.thesis_coverage_percent < 65) {
-      recommendations.push(
-        `Покрытие тезисов ${text.structure.thesis_coverage_percent}% — проговори пропущенные пункты плана.`,
-      )
-    }
-    if (text.structure.clarity_score < 60) {
-      recommendations.push(
-        'Упрости структуру речи: короче предложения и больше явных маркеров "во-первых / итог".',
-      )
-    }
-    if (text.structure.filler_words_count > 5) {
-      recommendations.push(
-        `Многовато слов-паразитов (${text.structure.filler_words_count}) — старайся делать паузы вместо "как бы / типа".`,
-      )
-    }
-  }
-
-  if (text?.sentiment?.label === 'negative') {
-    recommendations.push('Тон получился скорее негативным — добавь поддерживающие и нейтральные формулировки.')
-  }
-
   if (recommendations.length === 0) {
     recommendations.push('Выступление выглядит сбалансированным. Сохраняй темп, взгляд и структуру.')
   }
 
   return recommendations
-}
-
-export async function requestLlmRecommendations(summary, text) {
-  const promptApi = window.ai?.languageModel
-  if (!promptApi) {
-    return ''
-  }
-
-  try {
-    const session = await promptApi.create({
-      systemPrompt:
-        'Ты помощник по подготовке доклада. На основе метрик выступления дай 4-6 практичных рекомендаций на русском в нумерованном списке.',
-    })
-    return await session.prompt(`Метрики выступления: ${JSON.stringify({ summary, text })}`)
-  } catch (error) {
-    return `Prompt API недоступен: ${error.message}`
-  }
 }

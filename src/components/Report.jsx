@@ -1,4 +1,4 @@
-import { formatDuration, sentimentLabelRu, toneByHigh } from '../lib/reportUtils'
+import { formatDuration, toneByHigh } from '../lib/reportUtils'
 
 function MetricRow({ label, percent, valueText, tone }) {
   const width = Math.max(0, Math.min(100, percent))
@@ -79,63 +79,7 @@ function AudioCard({ summary }) {
   )
 }
 
-function TextReportCard({ text }) {
-  if (!text?.structure) {
-    return (
-      <div className="report-card">
-        <h4>Текст и тезисы</h4>
-        <p className="report-note">
-          Нет данных: добавь тезисы и транскрипт, затем нажми «Анализировать текст».
-        </p>
-      </div>
-    )
-  }
-
-  const s = text.structure
-  return (
-    <div className="report-card">
-      <h4>
-        Текст и тезисы{' '}
-        {text.sentiment ? (
-          <span className={`sentiment-chip sentiment-${text.sentiment.label}`}>
-            Тональность: {sentimentLabelRu(text.sentiment.label)} · (Достоверность оценки{' '}
-            {text.sentiment.confidence_percent}%)
-          </span>
-        ) : null}
-      </h4>
-      <MetricRow
-        label="Покрытие тезисов"
-        percent={s.thesis_coverage_percent}
-        valueText={`${s.covered_theses}/${s.total_theses} · ${s.thesis_coverage_percent}%`}
-        tone={toneByHigh(s.thesis_coverage_percent)}
-      />
-      <MetricRow
-        label="Ясность речи"
-        percent={s.clarity_score}
-        valueText={`${s.clarity_score}/100`}
-        tone={toneByHigh(s.clarity_score)}
-      />
-      {Array.isArray(s.coverage_details) && s.coverage_details.length > 0 ? (
-        <ul className="thesis-list">
-          {s.coverage_details.map((item, index) => (
-            <li key={index} className={`thesis-item ${item.covered ? 'covered' : 'missed'}`}>
-              <span className="thesis-chip">
-                {item.covered ? '✓' : '✗'} {item.coverage}%
-              </span>
-              <span className="thesis-text">{item.thesis}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <p className="report-note">
-        Средняя длина предложения {s.avg_sentence_length} слов · слова-паразиты {s.filler_words_count} · маркеры
-        структуры {s.structure_markers_found}.
-      </p>
-    </div>
-  )
-}
-
-function RecommendationsCard({ recommendations, llmText }) {
+function RecommendationsCard({ recommendations }) {
   return (
     <div className="report-card">
       <h4>Рекомендации</h4>
@@ -144,12 +88,6 @@ function RecommendationsCard({ recommendations, llmText }) {
           <li key={index}>{line}</li>
         ))}
       </ol>
-      {llmText ? (
-        <div className="report-note report-llm">
-          <strong>Рекомендации LLM:</strong>
-          <pre>{llmText}</pre>
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -159,20 +97,21 @@ export default function Report({ content }) {
     return <div className="coach-output">{content}</div>
   }
 
-  const { summary, text, recommendations, llmText } = content
+  const { summary, recommendations } = content
   return (
     <div className="coach-output">
       <div className="report">
         <div className="report-title">
           <span>Итоговый анализ выступления</span>
-          {summary ? (
-            <span className="report-duration">Длительность live: {formatDuration(summary.durationSec)}</span>
-          ) : null}
+          <span className="report-meta">
+            {summary ? (
+              <span className="report-duration">Длительность live: {formatDuration(summary.durationSec)}</span>
+            ) : null}
+          </span>
         </div>
         <VisionCard summary={summary} />
         <AudioCard summary={summary} />
-        <TextReportCard text={text} />
-        <RecommendationsCard recommendations={recommendations} llmText={llmText} />
+        <RecommendationsCard recommendations={recommendations} />
       </div>
     </div>
   )

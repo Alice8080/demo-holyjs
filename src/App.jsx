@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { env } from '@xenova/transformers'
+import { useCallback, useRef, useState } from 'react'
 import LiveCard from './components/LiveCard'
-import TextCard from './components/TextCard'
 import Report from './components/Report'
 import { useAudio } from './hooks/useAudio'
-import { useSpeech } from './hooks/useSpeech'
-import { useTextAnalysis } from './hooks/useTextAnalysis'
 import { useVision } from './hooks/useVision'
 import { createSessionStats } from './lib/sessionStats'
-import { buildSessionRecommendations, requestLlmRecommendations } from './lib/recommendations'
-import { configureTransformersEnv } from './lib/transformersConfig'
+import { buildSessionRecommendations } from './lib/recommendations'
 
 const INITIAL_HUD = {
   gaze: { text: 'Взгляд: ждем камеру...', state: 'neutral' },
@@ -24,33 +19,21 @@ export default function App() {
   const webcamRef = useRef(null)
   const overlayRef = useRef(null)
   const reactionLayerRef = useRef(null)
-  const latestSignals = useRef({ vision: null, audio: null, text: null })
+  const latestSignals = useRef({ vision: null, audio: null })
   const sessionStatsRef = useRef(null)
   if (!sessionStatsRef.current) {
     sessionStatsRef.current = createSessionStats()
   }
   const sessionStats = sessionStatsRef.current
 
-  const [theses, setTheses] = useState('')
-  const [transcript, setTranscript] = useState('')
   const [liveStarted, setLiveStarted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [hud, setHud] = useState(INITIAL_HUD)
   const [visionStatus, setVisionStatus] = useState('Модели зрения: ожидание')
-  const [nlpStatus, setNlpStatus] = useState('Текстовая модель: ожидание')
-  const [asrStatus, setAsrStatus] = useState('')
   const [coach, setCoach] = useState('Отчёт появится после остановки live-анализа.')
-
-  useEffect(() => {
-    configureTransformersEnv(env)
-  }, [])
 
   const updateHud = useCallback((key, text, state) => {
     setHud((prev) => ({ ...prev, [key]: { text, state } }))
-  }, [])
-
-  const handleTranscript = useCallback((chunk) => {
-    setTranscript((prev) => `${prev} ${chunk}`.trim())
   }, [])
 
   const { startCamera, stopCamera } = useVision({
@@ -69,74 +52,34 @@ export default function App() {
     sessionStats,
   })
 
-  const { startSpeechRecognition, stopSpeechRecognition } = useSpeech({
-    onTranscript: handleTranscript,
-    setAsrStatus,
-  })
-
-  const { analyzeText } = useTextAnalysis({ setNlpStatus })
-
-  const generateReport = useCallback(async () => {
+  // Итоговый отчёт по Vision/Audio с эвристическими рекомендациями (локально, без LLM).
+  const generateReport = useCallback(() => {
     const summary = sessionStats.summarize()
-    const text = latestSignals.current.text
 
-    if (!summary && !text) {
-      setCoach(
-        'Пока нет данных для анализа. Запусти live-анализ и/или проанализируй текст, затем сформируй отчёт.',
-      )
+    if (!summary) {
+      setCoach('Пока нет данных для анализа. Запусти live-анализ, затем сформируй отчёт.')
       return
     }
 
-    const recommendations = buildSessionRecommendations(summary, text)
-    const llmText = await requestLlmRecommendations(summary, text)
-    setCoach({ summary, text, recommendations, llmText })
+    setCoach({
+      summary,
+      recommendations: buildSessionRecommendations(summary),
+    })
   }, [sessionStats])
-
-  useEffect(() => {
-    if (!transcript.trim()) {
-      return undefined
-    }
-
-    const timer = setTimeout(() => {
-      analyzeText(theses, transcript)
-        .then((result) => {
-          if (result) {
-            latestSignals.current.text = result
-            return generateReport()
-          }
-          return undefined
-        })
-        .catch((error) => setNlpStatus(`Ошибка автоанализа текста: ${error.message}`))
-    }, 900)
-
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [theses, transcript])
 
   async function toggleLive() {
     setBusy(true)
 
     if (liveStarted) {
-      stopSpeechRecognition()
       await stopMicrophone()
       stopCamera()
       sessionStats.stop()
       setVisionStatus('Модели зрения: остановлены')
-      setAsrStatus('Речь: остановлено.')
       setLiveStarted(false)
       setCoach('Формирую итоговый анализ выступления...')
 
       try {
-        const result = await analyzeText(theses, transcript)
-        if (result) {
-          latestSignals.current.text = result
-        }
-      } catch (error) {
-        setNlpStatus(`Ошибка анализа текста: ${error.message}`)
-      }
-
-      try {
-        await generateReport()
+        generateReport()
       } catch (error) {
         setCoach(`Ошибка формирования отчёта: ${error.message}`)
       }
@@ -162,11 +105,6 @@ export default function App() {
     } catch (error) {
       hasErrors = true
       updateHud('quality', `Аудио-анализатор: ошибка (${error.message})`, 'bad')
-    }
-
-    const asrStarted = startSpeechRecognition()
-    if (!asrStarted) {
-      hasErrors = true
     }
 
     if (!hasErrors) {
@@ -198,18 +136,10 @@ export default function App() {
             onToggleLive={toggleLive}
           />
 
-          <TextCard
-            theses={theses}
-            onThesesChange={setTheses}
-            transcript={transcript}
-            asrStatus={asrStatus}
-            nlpStatus={nlpStatus}
-          />
-
           <article className="card">
-            <h2>LLM-агрегатор</h2>
+            <h2>Итоговый анализ</h2>
             <p>
-              Собирает сигналы из Vision/Audio/Text и автоматически формирует итоговый отчёт после остановки
+              Собирает сигналы из Vision/Audio и автоматически формирует итоговый отчёт после остановки
               live-анализа.
             </p>
             <Report content={coach} />
