@@ -104,7 +104,7 @@ export default function Report({ content }) {
         <div className="report-title">
           <span className="report-meta">
             {summary ? (
-              <span className="report-duration">Длительность live: {formatDuration(summary.durationSec)}</span>
+              <span className="report-duration">Длительность записи: {formatDuration(summary.durationSec)}</span>
             ) : null}
           </span>
         </div>

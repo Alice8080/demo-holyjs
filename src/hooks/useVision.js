@@ -234,7 +234,7 @@ export function useVision({
         ? 'Взгляд: лицо вышло из кадра.'
         : offCamera
           ? 'Взгляд: чаще смотри в камеру.'
-          : 'Взгляд: хороший eye contact.'
+          : 'Взгляд: хороший зрительный контакт.'
 
     setHud('gaze', text, offCamera ? 'bad' : 'good')
     return !offCamera
