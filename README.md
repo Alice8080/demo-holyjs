@@ -85,9 +85,9 @@
 │  [Стоп] ──► summarize() ──► Report + рекомендации          │
 └─────────────────────────────────────────────────────────────┘
 
-         ▲ единственные внешние запросы при старте:
-         │  WASM-рантайм (jsDelivr) + веса моделей (Google Cloud Storage)
-         │  после загрузки inference полностью офлайн
+         ▲ внешние запросы при старте:
+         │  WASM-рантайм (jsDelivr, HTTP cache) + веса моделей (только первый раз)
+         │  повторные запуски: веса из IndexedDB, inference полностью локально
 ```
 
 **Стек:** React 19 + Vite 8, `@mediapipe/tasks-vision` 0.10.35.
@@ -97,6 +97,7 @@
 | Файл | Роль |
 |---|---|
 | `src/hooks/useVision.js` | Загрузка моделей, inference-цикл, эвристики vision |
+| `src/lib/modelCache.js` | Кэширование весов моделей в IndexedDB |
 | `src/hooks/useAudio.js` | Web Audio API, анализ микрофона |
 | `src/lib/sessionStats.js` | Агрегация метрик за сессию |
 | `src/lib/recommendations.js` | Правила для итоговых рекомендаций |
@@ -110,11 +111,43 @@
 
 Все три модели — из экосистемы **Google MediaPipe Tasks**, формат `.task` (TFLite + метаданные), квантизация **float16**:
 
-| Модель | Назначение | URL загрузки |
+| Модель | Назначение | Размер | URL загрузки |
+|---|---|---:|---|
+| **Face Landmarker** | 478 лендмарков лица, blendshapes, оценка взгляда и мимики | **3.6 МБ** | `storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task` |
+| **Pose Landmarker Lite** | Скелет тела (lite-версия для скорости) | **5.5 МБ** | `storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task` |
+| **Gesture Recognizer** | Классификация жестов рук (до 2 рук) | **8.0 МБ** | `storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task` |
+
+**Суммарный вес vision-моделей: ~17.1 МБ** (float16). Это единственный «тяжёлый» download при первом запуске — после кэширования повторные визиты не скачивают веса повторно.
+
+### Кэширование моделей
+
+Веса моделей кэшируются в **IndexedDB** браузера (`local-presentation-coach` → store `vision-models`):
+
+1. При старте live-анализа `getModelBuffers()` проверяет IndexedDB по URL каждой модели
+2. Если буфер найден — модель инициализируется через `modelAssetBuffer` без сетевого запроса
+3. Если буфера нет — модель скачивается один раз, сохраняется в IndexedDB и используется сразу
+4. Статус в UI показывает источник: `кэш`, `сеть` или `кэш + сеть` (частичное попадание)
+
+```js
+const { buffers, fromCacheCount, totalCount } = await getModelBuffers([
+  FACE_MODEL_URL,
+  POSE_MODEL_URL,
+  GESTURE_MODEL_URL,
+])
+
+FaceLandmarker.createFromOptions(resolver, {
+  baseOptions: { modelAssetBuffer: buffers[FACE_MODEL_URL], delegate: 'GPU' },
+  runningMode: 'VIDEO',
+})
+```
+
+| Запуск | Что происходит | Сеть |
 |---|---|---|
-| **Face Landmarker** | 478 лендмарков лица, blendshapes, оценка взгляда и мимики | `storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task` |
-| **Pose Landmarker Lite** | Скелет тела (lite-версия для скорости) | `storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task` |
-| **Gesture Recognizer** | Классификация жестов рук (до 2 рук) | `storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task` |
+| **Первый** | Скачивание ~17 МБ + сохранение в IndexedDB | ~17 МБ model weights + WASM |
+| **Повторный** (тот же браузер) | Чтение из IndexedDB, инициализация из памяти | Только WASM (~несколько МБ, HTTP cache браузера) |
+| **Новая вкладка / перезагрузка** | Модели уже в IndexedDB — без повторной загрузки весов | WASM из HTTP cache |
+
+> WASM-рантайм MediaPipe по-прежнему загружается с jsDelivr, но браузер кэширует его через стандартный HTTP cache. Для полного offline-first можно дополнительно положить WASM и `.task`-файлы в `public/`.
 
 ### WASM-рантайм
 
@@ -155,11 +188,12 @@ if (isGpuDelegateAvailable()) {
 
 ### Что происходит при старте (пошагово)
 
-1. `FilesetResolver.forVisionTasks()` — скачивает и инициализирует WASM-модули (~несколько МБ)
-2. Параллельно создаются три экземпляра моделей — каждый скачивает свой `.task`-файл
-3. Модели кэшируются браузером (HTTP cache) — повторный запуск значительно быстрее
-4. `getUserMedia` → видеопоток на `<video>`
-5. `requestAnimationFrame` → на каждом кадре три inference-вызова → обновление HUD и статистики
+1. `getModelBuffers()` — читает веса из IndexedDB или скачивает ~17 МБ с Google Cloud Storage
+2. `FilesetResolver.forVisionTasks()` — загружает WASM-модули (кэшируются браузером по HTTP)
+3. Параллельно инициализируются три модели из `modelAssetBuffer` (без повторного скачивания)
+4. Автовыбор backend: GPU (WebGL2) с fallback на CPU
+5. `getUserMedia` → видеопоток на `<video>`
+6. `requestAnimationFrame` → на каждом кадре три inference-вызова → обновление HUD и статистики
 
 ### Приватность и сеть
 
@@ -168,7 +202,7 @@ if (isGpuDelegateAvailable()) {
 | Видеопоток с камеры | Только в RAM браузера, в canvas/video element |
 | Аудиопоток | Только в AudioContext, никуда не записывается |
 | Метрики сессии | `sessionStats` в памяти, сбрасываются при новом старте |
-| Внешние запросы | Только при **первой** загрузке: WASM + веса моделей. Никаких analytics, telemetry, облачного inference |
+| Внешние запросы | При **первом** запуске: ~17 МБ весов + WASM. При повторных — веса из IndexedDB, WASM из HTTP cache |
 
 ---
 
@@ -190,13 +224,13 @@ npm run preview  # предпросмотр сборки
 
 - Современный браузер с поддержкой WebAssembly SIMD, `getUserMedia`, Web Audio API
 - Камера и микрофон (для полного опыта)
-- Интернет при **первом** запуске (загрузка моделей и WASM)
+- Интернет при **первом** запуске (загрузка ~17 МБ весов моделей и WASM); повторные запуски используют IndexedDB
 
 ---
 
 ## Сценарий для живой демонстрации на HolyJS
 
-1. **Старт** — показать, что модели загружаются прямо в браузере (статус «Vision-модели: загрузка... → готовы (GPU)» или «готовы (WASM (CPU))»)
+1. **Старт** — показать загрузку моделей (статус «загрузка весов... → инициализация (кэш/сеть) → готовы (GPU, кэш)»)
 2. **Live** — отойти от камеры → HUD предупредит о взгляде; перекосить плечи → сигнал по позе; показать жест 👍 → emoji-реакция на видео
 3. **Аудио** — говорить тихо/громко → HUD по шуму и клиппингу реагирует мгновенно
 4. **Стоп** — итоговый отчёт с процентами и рекомендациями формируется **локально за миллисекунды**, без запроса к серверу
@@ -206,6 +240,6 @@ npm run preview  # предпросмотр сборки
 
 ## Ограничения
 
-- Модели и WASM загружаются с CDN при первом визите — для полного offline-first можно положить ассеты в `public/`
+- WASM-рантайм всё ещё загружается с CDN (кэшируется HTTP); для полного offline-first можно положить WASM и `.task`-файлы в `public/`
 - Pose Landmarker **Lite** — компромисс скорость/точность; для продакшена можно взять full-модель
 - Рекомендации — эвристики, не LLM; для «умного коуча» можно добавить локальный LLM (WebLLM, Chrome Built-in AI), но это другой уровень сложности

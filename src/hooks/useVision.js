@@ -5,6 +5,7 @@ import {
   GestureRecognizer,
   PoseLandmarker,
 } from '@mediapipe/tasks-vision'
+import { getModelBuffers } from '../lib/modelCache'
 
 const FACE_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
@@ -24,25 +25,27 @@ function isGpuDelegateAvailable() {
   }
 }
 
-function buildBaseOptions(modelAssetPath, delegate) {
-  return { modelAssetPath, delegate }
+const VISION_MODEL_URLS = [FACE_MODEL_URL, POSE_MODEL_URL, GESTURE_MODEL_URL]
+
+function buildBaseOptions(modelBuffer, delegate) {
+  return { modelAssetBuffer: modelBuffer, delegate }
 }
 
-async function createVisionModels(resolver, delegate) {
+async function createVisionModels(resolver, delegate, modelBuffers) {
   const [faceLandmarker, poseLandmarker, gestureRecognizer] = await Promise.all([
     FaceLandmarker.createFromOptions(resolver, {
-      baseOptions: buildBaseOptions(FACE_MODEL_URL, delegate),
+      baseOptions: buildBaseOptions(modelBuffers[FACE_MODEL_URL], delegate),
       runningMode: 'VIDEO',
       numFaces: 1,
       outputFaceBlendshapes: true,
     }),
     PoseLandmarker.createFromOptions(resolver, {
-      baseOptions: buildBaseOptions(POSE_MODEL_URL, delegate),
+      baseOptions: buildBaseOptions(modelBuffers[POSE_MODEL_URL], delegate),
       runningMode: 'VIDEO',
       numPoses: 1,
     }),
     GestureRecognizer.createFromOptions(resolver, {
-      baseOptions: buildBaseOptions(GESTURE_MODEL_URL, delegate),
+      baseOptions: buildBaseOptions(modelBuffers[GESTURE_MODEL_URL], delegate),
       runningMode: 'VIDEO',
       numHands: 2,
     }),
@@ -121,7 +124,12 @@ export function useVision({
       return
     }
 
-    setVisionStatus('Vision-модели: загрузка...')
+    setVisionStatus('Vision-модели: загрузка весов...')
+    const { buffers: modelBuffers, fromCacheCount, totalCount } = await getModelBuffers(VISION_MODEL_URLS)
+    const cacheLabel =
+      fromCacheCount === totalCount ? 'кэш' : fromCacheCount === 0 ? 'сеть' : 'кэш + сеть'
+    setVisionStatus(`Vision-модели: инициализация (${cacheLabel})...`)
+
     const resolver = await getVisionResolver()
 
     let delegate = 'CPU'
@@ -129,13 +137,13 @@ export function useVision({
 
     if (isGpuDelegateAvailable()) {
       try {
-        models = await createVisionModels(resolver, 'GPU')
+        models = await createVisionModels(resolver, 'GPU', modelBuffers)
         delegate = 'GPU'
       } catch {
-        models = await createVisionModels(resolver, 'CPU')
+        models = await createVisionModels(resolver, 'CPU', modelBuffers)
       }
     } else {
-      models = await createVisionModels(resolver, 'CPU')
+      models = await createVisionModels(resolver, 'CPU', modelBuffers)
     }
 
     s.faceLandmarker = models.faceLandmarker
@@ -143,7 +151,7 @@ export function useVision({
     s.gestureRecognizer = models.gestureRecognizer
 
     const backendLabel = delegate === 'GPU' ? 'GPU' : 'WASM (CPU)'
-    setVisionStatus(`Vision-модели: готовы (${backendLabel})`)
+    setVisionStatus(`Vision-модели: готовы (${backendLabel}, ${cacheLabel})`)
   }
 
   function toPixelPoint(point) {
