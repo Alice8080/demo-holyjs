@@ -102,7 +102,6 @@ export default function Report({ content }) {
     <div className="coach-output">
       <div className="report">
         <div className="report-title">
-          <span>Итоговый анализ выступления</span>
           <span className="report-meta">
             {summary ? (
               <span className="report-duration">Длительность live: {formatDuration(summary.durationSec)}</span>
