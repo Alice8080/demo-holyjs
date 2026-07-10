@@ -15,6 +15,42 @@ const GESTURE_MODEL_URL =
 const WASM_FILES_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
 const OFF_CAMERA_THRESHOLD = 6
 
+function isGpuDelegateAvailable() {
+  try {
+    const canvas = document.createElement('canvas')
+    return canvas.getContext('webgl2') !== null
+  } catch {
+    return false
+  }
+}
+
+function buildBaseOptions(modelAssetPath, delegate) {
+  return { modelAssetPath, delegate }
+}
+
+async function createVisionModels(resolver, delegate) {
+  const [faceLandmarker, poseLandmarker, gestureRecognizer] = await Promise.all([
+    FaceLandmarker.createFromOptions(resolver, {
+      baseOptions: buildBaseOptions(FACE_MODEL_URL, delegate),
+      runningMode: 'VIDEO',
+      numFaces: 1,
+      outputFaceBlendshapes: true,
+    }),
+    PoseLandmarker.createFromOptions(resolver, {
+      baseOptions: buildBaseOptions(POSE_MODEL_URL, delegate),
+      runningMode: 'VIDEO',
+      numPoses: 1,
+    }),
+    GestureRecognizer.createFromOptions(resolver, {
+      baseOptions: buildBaseOptions(GESTURE_MODEL_URL, delegate),
+      runningMode: 'VIDEO',
+      numHands: 2,
+    }),
+  ])
+
+  return { faceLandmarker, poseLandmarker, gestureRecognizer }
+}
+
 const GESTURE_EMOJI = {
   Thumbs_Up: '👍',
   Thumb_Up: '👍',
@@ -88,32 +124,26 @@ export function useVision({
     setVisionStatus('Vision-модели: загрузка...')
     const resolver = await getVisionResolver()
 
-    if (!s.faceLandmarker) {
-      s.faceLandmarker = await FaceLandmarker.createFromOptions(resolver, {
-        baseOptions: { modelAssetPath: FACE_MODEL_URL },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        outputFaceBlendshapes: true,
-      })
+    let delegate = 'CPU'
+    let models
+
+    if (isGpuDelegateAvailable()) {
+      try {
+        models = await createVisionModels(resolver, 'GPU')
+        delegate = 'GPU'
+      } catch {
+        models = await createVisionModels(resolver, 'CPU')
+      }
+    } else {
+      models = await createVisionModels(resolver, 'CPU')
     }
 
-    if (!s.poseLandmarker) {
-      s.poseLandmarker = await PoseLandmarker.createFromOptions(resolver, {
-        baseOptions: { modelAssetPath: POSE_MODEL_URL },
-        runningMode: 'VIDEO',
-        numPoses: 1,
-      })
-    }
+    s.faceLandmarker = models.faceLandmarker
+    s.poseLandmarker = models.poseLandmarker
+    s.gestureRecognizer = models.gestureRecognizer
 
-    if (!s.gestureRecognizer) {
-      s.gestureRecognizer = await GestureRecognizer.createFromOptions(resolver, {
-        baseOptions: { modelAssetPath: GESTURE_MODEL_URL },
-        runningMode: 'VIDEO',
-        numHands: 2,
-      })
-    }
-
-    setVisionStatus('Vision-модели: готовы (WASM)')
+    const backendLabel = delegate === 'GPU' ? 'GPU' : 'WASM (CPU)'
+    setVisionStatus(`Vision-модели: готовы (${backendLabel})`)
   }
 
   function toPixelPoint(point) {
